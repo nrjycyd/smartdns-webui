@@ -1,34 +1,87 @@
 name: Release
 
 on:
-  release:
-    types: [published]
+  push:
+    branches: [ main ]
+  workflow_dispatch:
 
 permissions:
   contents: write
 
+concurrency:
+  group: release-main
+  cancel-in-progress: false
+
 jobs:
   build:
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
+    env:
+      TZ: Asia/Shanghai
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout source
+        uses: actions/checkout@v7
         with:
-          ref: ${{ github.event.release.tag_name }}
+          persist-credentials: false
 
-      - uses: actions/setup-node@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
         with:
-          node-version: 22
+          node-version: '24'
           cache: npm
 
-      - run: npm ci
-      - run: npm run build
+      - name: Install dependencies
+        run: npm ci
 
-      - name: Upload build to release
+      - name: Test PWA
+        run: npm run test:pwa
+
+      - name: Build
+        run: npm run build
+
+      - name: Package dated release
+        id: package
+        run: |
+          set -euo pipefail
+          tag="v1.0.0-pwa-$(date +'%Y%m%d-%H%M%S')"
+          asset="smartdns-ui-${tag}.tar.gz"
+          checksum="${asset}.sha256"
+
+          tar -czf "$asset" -C out .
+          sha256sum "$asset" > "$checksum"
+
+          printf 'tag=%s\nasset=%s\nchecksum=%s\n' \
+            "$tag" "$asset" "$checksum" >> "$GITHUB_OUTPUT"
+
+      - name: Publish GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
-          TAG: ${{ github.event.release.tag_name }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ steps.package.outputs.tag }}
+          ASSET: ${{ steps.package.outputs.asset }}
+          CHECKSUM: ${{ steps.package.outputs.checksum }}
         run: |
-          asset="smartdns-ui-${TAG//\//-}.tar.gz"
-          tar -czf "$asset" -C out .
-          gh release upload "$TAG" "$asset" --clobber
+          set -euo pipefail
+          {
+            printf 'SmartDNS WebUI PWA automated build.\n\n'
+            printf -- '- Version: `%s`\n' "$TAG"
+            printf -- '- Built at (Asia/Shanghai): %s\n' "$(date +'%Y-%m-%d %H:%M:%S %Z')"
+            printf -- '- Commit: `%s`\n' "$GITHUB_SHA"
+            printf -- '- Workflow: %s/%s/actions/runs/%s\n\n' \
+              "$GITHUB_SERVER_URL" "$GITHUB_REPOSITORY" "$GITHUB_RUN_ID"
+            printf 'Deploy the contents of the `.tar.gz` archive to the SmartDNS WebUI web root.\n'
+            printf 'The `.sha256` file contains the archive checksum.\n'
+          } > release-notes.md
+
+          gh release create "$TAG" "$ASSET" "$CHECKSUM" \
+            --target "$GITHUB_SHA" \
+            --title "$TAG" \
+            --notes-file release-notes.md \
+            --latest
+
+          printf '## Release published\n\n[%s](%s/%s/releases/tag/%s)\n' \
+            "$TAG" "$GITHUB_SERVER_URL" "$GITHUB_REPOSITORY" "$TAG" >> "$GITHUB_STEP_SUMMARY"
