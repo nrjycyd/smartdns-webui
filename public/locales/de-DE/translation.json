@@ -129,5 +129,13 @@
   "Audit log is not enabled, please set `audit-enable` to `yes` in smartdns config file.": "Audit-Log is inaktiv. Setzen Sie `audit-enable` auf `yes` in der smartdns.conf-Datei.",
   "QPS": "QPS",
   "UI Version": "UI-Version",
-  "Server Version": "Server-Version"
+  "Server Version": "Server-Version",
+  "Install app": "App installieren",
+  "Install SmartDNS": "SmartDNS installieren",
+  "Install SmartDNS as an app to open it from your home screen or desktop.": "Installieren Sie SmartDNS als App, um es vom Startbildschirm oder Desktop zu öffnen.",
+  "SmartDNS is running as an installed app.": "SmartDNS wird als installierte App ausgeführt.",
+  "Installation requires HTTPS with a trusted certificate, or localhost. A LAN HTTP address is not supported.": "Die Installation erfordert HTTPS mit einem vertrauenswürdigen Zertifikat oder localhost. Eine LAN-Adresse mit HTTP wird nicht unterstützt.",
+  "If installation is available, use your browser menu to install this app. On iPhone or iPad, open in Safari, tap Share, then Add to Home Screen.": "Falls verfügbar, installieren Sie die App über das Browsermenü. Auf iPhone oder iPad öffnen Sie Safari, tippen auf Teilen und dann auf Zum Home-Bildschirm.",
+  "Could not open the installation prompt. Try installing from your browser menu.": "Die Installationsaufforderung konnte nicht geöffnet werden. Versuchen Sie es über das Browsermenü.",
+  "Management features require a connection to the SmartDNS server.": "Verwaltungsfunktionen erfordern eine Verbindung zum SmartDNS-Server."
 }

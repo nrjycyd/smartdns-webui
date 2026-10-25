@@ -142,5 +142,13 @@
     "QPS": "查询数",
     
     "UI Version": "UI 版本",
-    "Server Version": "服务器版本"
+    "Server Version": "服务器版本",
+    "Install app": "安装应用",
+    "Install SmartDNS": "安装 SmartDNS",
+    "Install SmartDNS as an app to open it from your home screen or desktop.": "将 SmartDNS 安装为应用，即可从主屏幕或桌面打开。",
+    "SmartDNS is running as an installed app.": "SmartDNS 当前以已安装应用的方式运行。",
+    "Installation requires HTTPS with a trusted certificate, or localhost. A LAN HTTP address is not supported.": "安装需要使用具有可信证书的 HTTPS 地址，或 localhost。不支持普通的局域网 HTTP 地址。",
+    "If installation is available, use your browser menu to install this app. On iPhone or iPad, open in Safari, tap Share, then Add to Home Screen.": "若浏览器支持安装，可通过浏览器菜单安装此应用。在 iPhone 或 iPad 上，请用 Safari 打开，点击“分享”，然后选择“添加到主屏幕”。",
+    "Could not open the installation prompt. Try installing from your browser menu.": "无法打开安装提示，请尝试通过浏览器菜单安装。",
+    "Management features require a connection to the SmartDNS server.": "管理功能需要连接 SmartDNS 服务器。"
 }

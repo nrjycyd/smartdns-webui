@@ -5,6 +5,7 @@ import Stack from '@mui/material/Stack';
 
 import { UpdatePasswordForm } from '@/components/dashboard/settings/update-password-form';
 import { ChangeLang } from '@/components/dashboard/settings/change-lang';
+import { InstallApp } from '@/components/dashboard/settings/install-app';
 import { TabContext, TabList, TabPanel } from '@mui/lab';
 import { Box, Card, CardContent, Tab, Typography } from '@mui/material';
 import { useTranslation } from 'react-i18next';
@@ -17,6 +18,10 @@ const tabs = [
   {
     label: 'Language',
     pannel: <ChangeLang />,
+  },
+  {
+    label: 'Install app',
+    pannel: <InstallApp />,
   }
 ];
 
@@ -31,7 +36,7 @@ export default function SettingsTab(): React.JSX.Element {
   return (
     <Stack spacing={1}>
       <Card>
-        <Typography variant="h4" sx={{ marginTop: -2 }}>
+        <Typography component="div" variant="h4" sx={{ marginTop: -2 }}>
           <TabContext value={value}>
             <CardContent>
               <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>

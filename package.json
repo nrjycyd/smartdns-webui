@@ -13,6 +13,7 @@
     "lint": "eslint src",
     "lint:fix": "eslint src --fix",
     "typecheck": "tsc --noEmit",
+    "test:pwa": "node --test tests/pwa.test.mjs",
     "format:write": "prettier --write \"**/*.{js,jsx,mjs,ts,tsx,mdx}\" --cache",
     "format:check": "prettier --check \"**/*.{js,jsx,mjs,ts,tsx,mdx}\" --cache"
   },

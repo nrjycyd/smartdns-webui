@@ -7,6 +7,6 @@ export interface Config {
 }
 
 export const config: Config = {
-  site: { name: 'SmartDNS', description: '', themeColor: '#090a0b', url: getSiteURL() },
+  site: { name: 'SmartDNS', description: '', themeColor: '#f8f9fa', url: getSiteURL() },
   logLevel: (process.env.NEXT_PUBLIC_LOG_LEVEL as keyof typeof LogLevel) ?? LogLevel.ALL,
 };
