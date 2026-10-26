@@ -6,6 +6,26 @@ export interface ColumnWidthTarget {
   weight: number;
 }
 
+function isIpv6Address(value: string): boolean {
+  const input = value.trim();
+  const bracketed = /^\[([^\]]+)\](?::\d+)?$/.exec(input);
+  const address = (bracketed?.[1] ?? input).split('%')[0];
+  if (!address.includes(':')) return false;
+  try {
+    return new URL(`http://[${address}]/`).hostname.startsWith('[');
+  } catch { return false; }
+}
+
+export function measureColumnContent(id: string, values: readonly string[], measure: (value: string) => number): number {
+  const ipColumn = /^ip$|^client$|_ip$/.test(id);
+  let width = 0;
+  for (const value of values) {
+    if (ipColumn && isIpv6Address(value)) continue;
+    width = Math.max(width, measure(value));
+  }
+  return width;
+}
+
 export const singleLineCellSx = {
   whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
   '& > span': { minWidth: 0, maxWidth: '100%', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' },
