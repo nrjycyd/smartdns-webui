@@ -8,19 +8,22 @@ import { logger } from '@/lib/default-logger';
 import { useUser } from '@/hooks/use-user';
 import { DarkModeSwitch } from '@/components/common/darkmode-switch';
 import { LogoutOutlined } from '@mui/icons-material';
+import { useTranslation } from 'react-i18next';
 
 
 export function MainToolBar(): React.JSX.Element {
   const { checkSession } = useUser();
   const router = useRouter();
+  const { t } = useTranslation();
+  const [pending, setPending] = React.useState(false);
 
   const handleSignOut = React.useCallback(async (): Promise<void> => {
     try {
+      setPending(true);
       const { error } = await authClient.signOut();
 
       if (error) {
         logger.error('Sign out error', error);
-        return;
       }
 
       await checkSession?.();
@@ -28,6 +31,8 @@ export function MainToolBar(): React.JSX.Element {
       router.refresh();
     } catch (error) {
       logger.error('Sign out error', error);
+    } finally {
+      setPending(false);
     }
   }, [checkSession, router]);
 
@@ -35,6 +40,8 @@ export function MainToolBar(): React.JSX.Element {
     <Stack direction='row' spacing={2} >
       <DarkModeSwitch />
       <IconButton
+        aria-label={t('Sign out')}
+        disabled={pending}
         onClick={async (): Promise<void> => {
           await handleSignOut();
         }}

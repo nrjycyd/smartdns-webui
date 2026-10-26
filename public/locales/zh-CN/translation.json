@@ -216,5 +216,6 @@
     "Automatically size visible columns using the available space and current page content across Query Log, Clients, and Upstream Servers.": "统一调整查询日志、客户端和上游服务器的列宽，根据可用空间、可见列和当前页内容自动分配。",
     "Auto fit follows window size and visible columns. Narrow screens keep horizontal scrolling. Switch to manual to restore your saved widths and drag column edges.": "默认自动适应，随窗口大小和显示列变化重新分配；空间不足时保留横向滚动。切换为手动调整可恢复原来保存的列宽，并拖动列边缘微调。选择会在当前浏览器保存。",
     "Could not read or save column width settings. Check browser storage permissions.": "无法读取或保存列宽设置，请检查浏览器存储权限。",
-    "Cells stay on one line. Auto fit temporarily hides Reply Code when space is tight and restores it when space returns. Your saved column visibility stays unchanged.": "单元格保持单行，优先完整展示常用内容。空间不足时自动临时隐藏“回应码”，空间恢复后重新显示；手动隐藏的列保持隐藏，不改写已保存的显示列配置。"
+    "Cells stay on one line. Auto fit temporarily hides Reply Code when space is tight and restores it when space returns. Your saved column visibility stays unchanged.": "单元格保持单行，优先完整展示常用内容。空间不足时自动临时隐藏“回应码”，空间恢复后重新显示；手动隐藏的列保持隐藏，不改写已保存的显示列配置。",
+    "Signed out locally, but server sign-out failed. Check the connection, then sign in and retry signing out.": "已在本地退出，但未能撤销服务器会话。请检查连接，恢复后重新登录并再次退出。"
 }

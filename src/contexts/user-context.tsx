@@ -12,6 +12,7 @@ export interface UserContextValue {
   user: User | null;
   error: string | null;
   isLoading: boolean;
+  signOutError: string | null;
   checkSession?: () => Promise<void>;
   checkSessionError?: (error: ServerError) => Promise<void>;
   setUserKey?: (key: string, value: unknown) => void;
@@ -27,11 +28,19 @@ export interface UserProviderProps {
 }
 
 export function UserProvider({ children }: UserProviderProps): React.JSX.Element {
-  const [state, setState] = React.useState<{ user: User | null; error: string | null; isLoading: boolean }>({
+  const terminalSocket = React.useRef<WebSocket | null>(null);
+  const [state, setState] = React.useState<{ user: User | null; error: string | null; isLoading: boolean; signOutError: string | null }>({
     user: null,
     error: null,
     isLoading: true,
+    signOutError: null,
   });
+
+  React.useEffect(() => authClient.subscribeSignOut((error) => {
+    terminalSocket.current?.close();
+    terminalSocket.current = null;
+    setState({ user: null, error: null, isLoading: false, signOutError: error ?? null });
+  }), []);
 
   const checkSession = React.useCallback(async (): Promise<void> => {
     try {
@@ -43,7 +52,7 @@ export function UserProvider({ children }: UserProviderProps): React.JSX.Element
         return;
       }
 
-      setState((prev) => ({ ...prev, user: data ?? null, error: null, isLoading: false }));
+      setState((prev) => ({ ...prev, user: data ?? null, error: null, isLoading: false, signOutError: data ? null : prev.signOutError }));
     } catch (error) {
       logger.error(error);
       setState((prev) => ({ ...prev, user: null, error: 'Something went wrong', isLoading: false }));
@@ -68,6 +77,7 @@ export function UserProvider({ children }: UserProviderProps): React.JSX.Element
 
   // Typed convenience wrappers
   const setXtermSocket = React.useCallback((value: WebSocket | null): void => {
+    terminalSocket.current = value;
     setUserKey('xtermSocket', value);
   }, [setUserKey]);
 

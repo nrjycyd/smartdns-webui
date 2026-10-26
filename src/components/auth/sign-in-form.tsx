@@ -44,7 +44,7 @@ async function setupUserSettings(settings: Settings): Promise<void> {
 export function SignInForm(): React.JSX.Element {
   const { t } = useTranslation();
   const router = useRouter();
-  const { checkSession } = useUser();
+  const { checkSession, signOutError } = useUser();
   const [showPassword, setShowPassword] = React.useState<boolean>();
   const [isPending, setIsPending] = React.useState<boolean>(false);
   const {
@@ -92,6 +92,7 @@ export function SignInForm(): React.JSX.Element {
 
   return (
     <Stack spacing={4}>
+      {signOutError && <Alert severity="warning">{t('Signed out locally, but server sign-out failed. Check the connection, then sign in and retry signing out.')} {t(smartdnsServer.getErrorMessage(signOutError))}</Alert>}
       <Stack direction="row" spacing={1} alignItems="center">
         <Logo color="light" height={80} width={80} />
         <Stack spacing={1}>

@@ -2,6 +2,8 @@
 
 import * as React from 'react';
 import { useMemo, useState } from 'react';
+import { readColumnVisibility, readColumnSizing, saveTablePreference, readTablePagination, getPageCursorParams, type PageCursor } from '@/components/dashboard/layout/table-preferences';
+import { useSearchParams } from 'next/navigation';
 import {
   MaterialReactTable,
   useMaterialReactTable,
@@ -18,11 +20,13 @@ import {
 import { Card, IconButton, Tooltip } from '@mui/material';
 import { createTheme, useColorScheme } from '@mui/material/styles';
 import RefreshIcon from '@mui/icons-material/Refresh';
+import dayjs from 'dayjs';
 import {
   QueryClient,
   QueryClientProvider,
   keepPreviousData,
   useQuery,
+  useQueryClient,
 } from '@tanstack/react-query';
 
 import { type ClientList, type QueryClientsParams, smartdnsServer } from '@/lib/backend/server';
@@ -31,13 +35,13 @@ import { useTableDensityPreview } from '@/components/dashboard/layout/table-dens
 import { useTranslation } from 'react-i18next';
 import { MRT_Localization_EN } from 'material-react-table/locales/en';
 import { MRT_Localization_ZH_HANS } from 'material-react-table/locales/zh-Hans';
-import i18n from '@/components/core/i18n';
 import { Delete, Domain, EditOutlined } from '@mui/icons-material';
 import { type SnackbarOrigin, SnackbarProvider, useSnackbar } from 'notistack';
 import { ClientHostname } from './client-hostname';
 import { ClientNameDialog } from './client-name-dialog';
 import { getClientName } from './client-names';
 import { useClientNames } from './client-names-provider';
+import { useRefreshClientIdentities } from './client-identity-provider';
 import { useAdaptiveColumns } from '@/components/dashboard/layout/use-adaptive-columns';
 
 
@@ -48,60 +52,23 @@ interface UserApiResponse {
   };
 };
 
-interface PageCursor {
-  pageNumber: number;
-  firstID: number;
-  lastID: number;
-}
+const FILTER_COLUMNS = new Set(['id', 'client_ip', 'mac', 'hostname']);
 
 function TableClients(): React.JSX.Element {
   const { names: clientNames } = useClientNames();
   const [editingClient, setEditingClient] = useState<ClientList | null>(null);
   const [density, previewDensity] = useTableDensityPreview();
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const search = useSearchParams().toString();
+  const queryClient = useQueryClient();
+  const refreshClientIdentities = useRefreshClientIdentities();
 
   const COLUMN_VISIBILITY_KEY = 'clients-table-column-visibility';
   const COLUMN_SIZING_KEY = 'clients-table-column-sizing';
   const PAGINATION_KEY = 'clients-table-pagination';
 
-  const savedColumnVisibility = localStorage.getItem(COLUMN_VISIBILITY_KEY);
-  const savedColumnSizing = localStorage.getItem(COLUMN_SIZING_KEY);
-  const savedPagination = localStorage.getItem(PAGINATION_KEY);
-
-  let jsonParsedColumnVisibility: Record<string, boolean> = {};
-  let jsonParsedColumnSizing: Record<string, number> = {};
-  let jsonParsedPagination: MRTPaginationState = { pageIndex: 0, pageSize: 10 };
-
-  try {
-    if (savedColumnVisibility) {
-      jsonParsedColumnVisibility = JSON.parse(savedColumnVisibility) as Record<string, boolean>;
-    }
-  } catch {
-    localStorage.removeItem(COLUMN_VISIBILITY_KEY);
-    jsonParsedColumnVisibility = {};
-  }
-
-  try {
-    if (savedColumnSizing) {
-      jsonParsedColumnSizing = JSON.parse(savedColumnSizing) as Record<string, number>;
-    }
-  } catch {
-    localStorage.removeItem(COLUMN_SIZING_KEY);
-    jsonParsedColumnSizing = {};
-  }
-
-  try {
-    if (savedPagination) {
-      jsonParsedPagination = JSON.parse(savedPagination) as MRTPaginationState;
-    }
-  } catch {
-    localStorage.removeItem(PAGINATION_KEY);
-    jsonParsedPagination = { pageIndex: 0, pageSize: 10 };
-  }
-
-  const initialColumnVisibility = jsonParsedColumnVisibility || {};
-  const [columnVisibility, setColumnVisibility] = React.useState(initialColumnVisibility);
-  const [columnSizing, setColumnSizing] = React.useState(jsonParsedColumnSizing);
+  const [columnVisibility, setColumnVisibility] = React.useState(() => readColumnVisibility(COLUMN_VISIBILITY_KEY));
+  const [columnSizing, setColumnSizing] = React.useState(() => readColumnSizing(COLUMN_SIZING_KEY));
 
   const columns = useMemo<MRTColumnDef<ClientList>[]>(
     () => [
@@ -139,6 +106,7 @@ function TableClients(): React.JSX.Element {
       {
         accessorKey: 'last_query_timestamp',
         header: t('Last Query Time'),
+        filterVariant: 'datetime-range',
         Cell: ({ cell }) => {
           const timestamp = cell.getValue<string>();
           const localTime = new Date(timestamp).toLocaleString();
@@ -168,9 +136,8 @@ function TableClients(): React.JSX.Element {
   const [globalFilter, setGlobalFilter] = useState('');
   const [errorMsg, setErrorMsg] = useState("Error loading data");
   const [sorting, setSorting] = useState<MRTSortingState>([]);
-  const lastPage = React.useRef(0);
   const pageCursor = React.useRef<PageCursor | null>(null);
-  const [pagination, setPagination] = useState<MRTPaginationState>(jsonParsedPagination);
+  const [pagination, setPagination] = useState<MRTPaginationState>(() => ({ ...readTablePagination(PAGINATION_KEY), pageIndex: 0 }));
   const [totalRowCount, setTotalRowCount] = useState(0);
   const totalCountFromParams = React.useRef(false);
   const [tableLocales, setTableLocales] = useState(MRT_Localization_EN);
@@ -178,22 +145,31 @@ function TableClients(): React.JSX.Element {
   const [isActionAlignRight] = React.useState<boolean>(() => typeof window !== 'undefined' && window.innerWidth >= 1200);
 
   React.useEffect(() => {
-    const searchParams = new URLSearchParams(location.search);
+    const searchParams = new URLSearchParams(search);
     const filters: MRTColumnFiltersState = [];
+    const timestamp: (dayjs.Dayjs | undefined)[] = [undefined, undefined];
 
     for (const [key, value] of searchParams.entries()) {
-      if (!columns.some((column) => column.accessorKey === key)) {
+      if (key === 'timestamp_after' || key === 'timestamp_before') {
+        const parsed = dayjs(Number(value));
+        if (parsed.isValid()) timestamp[key === 'timestamp_after' ? 0 : 1] = parsed;
+        continue;
+      }
+      if (key === 'last_query_timestamp') continue;
+      if (!FILTER_COLUMNS.has(key)) {
         continue;
       }
 
       filters.push({ id: key, value });
     }
 
+    if (timestamp.some(Boolean)) filters.push({ id: 'last_query_timestamp', value: timestamp });
+
+    pageCursor.current = null;
     setColumnFilters(filters);
-    if (!shouldFetchData) {
-      setShouldFetchData(true);
-    }
-  }, [shouldFetchData, columns, pagination]);
+    setPagination((previous) => ({ ...previous, pageIndex: 0 }));
+    setShouldFetchData(true);
+  }, [search]);
 
   const {
     data: { data = [], meta } = {},
@@ -212,7 +188,8 @@ function TableClients(): React.JSX.Element {
       pagination.pageSize,
       sorting,
     ],
-    queryFn: async () => {
+    queryFn: async ({ signal }) => {
+      const scope = JSON.stringify([columnFilterFns, columnFilters, globalFilter, sorting]);
       const currentPageNumber = pagination.pageIndex + 1;
       const queryParam: QueryClientsParams = {
         'page_num': currentPageNumber,
@@ -224,23 +201,7 @@ function TableClients(): React.JSX.Element {
         queryParam['total_count'] = totalRowCount;
       }
 
-      if (pageCursor.current !== null && pageCursor.current !== undefined) {
-        if (currentPageNumber > lastPage.current && currentPageNumber === lastPage.current + 1) {
-          if (pageCursor.current.lastID >= 0) {
-            queryParam['cursor'] = pageCursor.current.lastID;
-            queryParam['total_count'] = totalRowCount;
-            queryParam['cursor_direction'] = 'next';
-          }
-        } else if (currentPageNumber < lastPage.current && currentPageNumber === lastPage.current - 1) {
-          if (pageCursor.current.firstID >= 0) {
-            queryParam['cursor'] = pageCursor.current.firstID;
-            queryParam['total_count'] = totalRowCount;
-            queryParam['cursor_direction'] = 'prev';
-          }
-        }
-      }
-
-      lastPage.current = currentPageNumber;
+      Object.assign(queryParam, getPageCursorParams(pageCursor.current, currentPageNumber, pagination.pageSize, scope));
 
       for (const filter of columnFilters) {
         if (filter.id === null || filter.id === undefined || filter.value === null || filter.value === undefined) {
@@ -248,8 +209,8 @@ function TableClients(): React.JSX.Element {
         }
 
         if (filter.id === 'last_query_timestamp') {
-          const timerange = filter.value as string[];
-          if (timerange.length === 2) {
+          const timerange = filter.value;
+          if (Array.isArray(timerange) && timerange.length === 2) {
             if (timerange[0]) {
               queryParam['timestamp_after'] = new Date(timerange[0]).getTime();
             }
@@ -258,6 +219,7 @@ function TableClients(): React.JSX.Element {
               queryParam['timestamp_before'] = new Date(timerange[1]).getTime();
             }
           }
+          continue;
         }
 
         const filterId = filter.id as keyof QueryClientsParams;
@@ -276,19 +238,18 @@ function TableClients(): React.JSX.Element {
         throw new Error(errorMsg);
       }
 
-      let totalCount = 0;
-      if (data.data.total_count > 0 && data.data.client_list.length > 0) {
-        const newPageCursor: PageCursor = {
+      const totalCount = data.data.total_count;
+      if (!signal.aborted) {
+        pageCursor.current = data.data.client_list.length > 0 ? {
           firstID: data.data.client_list[0].id,
           lastID: data.data.client_list.at(-1)!.id,
-          pageNumber: currentPageNumber + 1,
-        };
-
-        pageCursor.current = newPageCursor;
-        totalCount = data.data.total_count;
+          pageNumber: currentPageNumber,
+          pageSize: pagination.pageSize,
+          scope,
+          totalCount,
+        } : null;
+        setTotalRowCount(totalCount);
       }
-
-      setTotalRowCount(totalCount);
       const resp: UserApiResponse = {
         data: data.data.client_list,
         meta: {
@@ -311,7 +272,7 @@ function TableClients(): React.JSX.Element {
     } else {
       setTableLocales(MRT_Localization_EN);
     }
-  }, []);
+  }, [i18n.language]);
 
   const handleRowClientMacVendor = React.useCallback(async (_row: MRTRow<ClientList>) => {
     const msg = t('Not implemented yet.');
@@ -329,7 +290,11 @@ function TableClients(): React.JSX.Element {
     }
 
     enqueueSnackbar(t('Delete client {{id}} {{client_ip}} successfully.', { id, client_ip: clientIP }), { variant: 'success' });
-  }, [t, enqueueSnackbar]);
+    pageCursor.current = null;
+    totalCountFromParams.current = false;
+    refreshClientIdentities();
+    await queryClient.invalidateQueries({ queryKey: ['table-data'] });
+  }, [t, enqueueSnackbar, queryClient, refreshClientIdentities]);
 
   const renderRowMenuItem = (closeMenu: () => void, row: MRTRow<ClientList>, table: MRTTableInstance<ClientList>): React.ReactNode[] => (
     [
@@ -414,9 +379,17 @@ function TableClients(): React.JSX.Element {
         children: errorMsg,
       }
       : undefined,
-    onColumnFilterFnsChange: setColumnFilterFns,
+    onColumnFilterFnsChange: (updater) => {
+      pageCursor.current = null;
+      totalCountFromParams.current = false;
+      setColumnFilterFns(updater);
+      setPagination((previous) => ({ ...previous, pageIndex: 0 }));
+    },
     onColumnFiltersChange: (filters) => {
+      pageCursor.current = null;
+      totalCountFromParams.current = false;
       setColumnFilters(filters);
+      setPagination((previous) => ({ ...previous, pageIndex: 0 }));
     },
     onGlobalFilterChange: (filters: React.SetStateAction<string>) => {
       setGlobalFilter(filters);
@@ -426,8 +399,9 @@ function TableClients(): React.JSX.Element {
         typeof updaterOrValue === 'function'
           ? updaterOrValue(pagination)
           : updaterOrValue;
+      if (newPagination.pageSize !== pagination.pageSize) pageCursor.current = null;
       setPagination(newPagination);
-      localStorage.setItem(PAGINATION_KEY, JSON.stringify(newPagination));
+      saveTablePreference(PAGINATION_KEY, newPagination);
     },
     onSortingChange: setSorting,
     onColumnVisibilityChange: (updaterOrValue) => {
@@ -436,7 +410,7 @@ function TableClients(): React.JSX.Element {
               typeof updaterOrValue === 'function'
                   ? updaterOrValue(prev)
                   : updaterOrValue;
-          localStorage.setItem(COLUMN_VISIBILITY_KEY, JSON.stringify(newVisibility));
+          saveTablePreference(COLUMN_VISIBILITY_KEY, newVisibility);
           return newVisibility;
         });
     },
@@ -447,7 +421,7 @@ function TableClients(): React.JSX.Element {
             typeof updaterOrValue === 'function'
               ? updaterOrValue(prev)
               : updaterOrValue;
-          localStorage.setItem(COLUMN_SIZING_KEY, JSON.stringify(newSizing));
+          saveTablePreference(COLUMN_SIZING_KEY, newSizing);
           return newSizing;
         });
     },
@@ -455,8 +429,11 @@ function TableClients(): React.JSX.Element {
       <Tooltip arrow title={t("Refresh Data")}>
         <span>
           <IconButton
+            aria-label={t('Refresh Data')}
             disabled={isRefetching}
             onClick={() => {
+              pageCursor.current = null;
+              refreshClientIdentities();
               refetch().catch((_error: unknown) => {
                 // NOOP
               });
@@ -560,7 +537,7 @@ export function ClientsTable(): React.JSX.Element {
         anchorOrigin={state}
         maxSnack={5} autoHideDuration={6000}>
         <Card>
-          <TableClients />
+          <React.Suspense fallback={null}><TableClients /></React.Suspense>
         </Card>
       </SnackbarProvider>
     </QueryClientProvider>

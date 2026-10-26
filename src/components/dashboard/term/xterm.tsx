@@ -49,6 +49,8 @@ export function TerminalTable(): React.JSX.Element {
   const { t } = useTranslation();
 
   const { user } = useUser();
+  const userRef = React.useRef(user);
+  React.useEffect(() => { userRef.current = user; }, [user]);
   const isDisplayError = React.useMemo(() => user === null, [user]);
 
   React.useEffect(() => {
@@ -149,6 +151,8 @@ export function TerminalTable(): React.JSX.Element {
     }
 
     hasInitialized.current = true;
+    let disposed = false;
+    const session = userRef.current;
 
     const term = new Terminal(
       {
@@ -199,10 +203,10 @@ export function TerminalTable(): React.JSX.Element {
     const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
     let refreshWin = false;
 
-    if (user?.xtermSocket) {
-      const socket = user?.xtermSocket as WebSocket;
+    if (session?.xtermSocket) {
+      const socket = session?.xtermSocket as WebSocket;
       if (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING) {
-        sockRef.current = user.xtermSocket as WebSocket;
+        sockRef.current = session.xtermSocket as WebSocket;
         refreshWin = true;
         resumeTerm();
       } else {
@@ -272,88 +276,54 @@ export function TerminalTable(): React.JSX.Element {
       sockRef.current = null;
     }
 
-    window.addEventListener('resize', () => {
+    const handleWindowResize = (): void => {
       addonfit.fit();
       setWinSize(term.cols, term.rows);
-    })
-
-    window.addEventListener('beforeunload', () => {
+    };
+    const handleBeforeUnload = (): void => {
       sockRef.current?.close();
       sockRef.current = null;
-    })
+    };
+    window.addEventListener('resize', handleWindowResize);
+    window.addEventListener('beforeunload', handleBeforeUnload);
 
-    terminalRef.current?.addEventListener('touchstart', (eventStart: TouchEvent) => {
-      const touch = eventStart.touches[0];
-      const startY = touch.clientY;
-      let isScrolling = false;
-
-      if (!terminalRef.current) {
-        return;
-      }
-
-      if (!termRef.current) {
-        return;
-      }
-
-      eventStart.preventDefault();
-      eventStart.stopPropagation();
-
-      terminalRef.current?.addEventListener('touchmove', (eventMove: TouchEvent) => {
-        eventMove.preventDefault();
-        eventMove.stopPropagation();
-        const touchMove = eventMove.touches[0];
-        const endY = touchMove.clientY;
-        const diffY = startY - endY;
-        if (!terminalRef.current) {
-          return;
-        }
-
-        if (!termRef.current) {
-          return;
-        }
-
-        if (diffY === 0) {
-          return;
-        }
-
-        if (diffY > 0) {
-          termRef.current.scrollLines(-Math.ceil(diffY / 30));
-        } else if (diffY < 0) {
-          termRef.current.scrollLines(Math.ceil(-diffY / 30));
-        }
-
+    const element = terminalRef.current;
+    let touchY: number | null = null;
+    let touchId: number | null = null;
+    let isScrolling = false;
+    const handleTouchStart = (event: TouchEvent): void => {
+      const touch = event.touches[0];
+      if (!touch) return;
+      touchY = touch.clientY;
+      touchId = touch.identifier;
+      isScrolling = false;
+      event.preventDefault();
+      event.stopPropagation();
+    };
+    const handleTouchMove = (event: TouchEvent): void => {
+      const touch = [...event.touches].find((item) => item.identifier === touchId);
+      if (!touch || touchY === null) return;
+      event.preventDefault();
+      event.stopPropagation();
+      const lines = Math.trunc((touchY - touch.clientY) / 30);
+      if (lines !== 0) {
+        term.scrollLines(-lines);
+        touchY -= lines * 30;
         isScrolling = true;
-      });
-
-      const handleTerminalTouchStart = (_eventEnd: TouchEvent): void => {
-        // NOOP
       }
-
-      const handleTerminalTouchMove = (_eventEnd: TouchEvent): void => {
-        // NOOP
-      }
-
-      const handleTerminalTouchEnd = (_eventEnd: TouchEvent): void => {
-        // NOOP
-      }
-
-      terminalRef.current?.addEventListener('touchend', (eventEnd: TouchEvent) => {
-        eventEnd.preventDefault();
-        eventEnd.stopPropagation();
-        terminalRef.current?.removeEventListener('touchstart', handleTerminalTouchStart);
-        terminalRef.current?.removeEventListener('touchmove', handleTerminalTouchMove);
-        terminalRef.current?.removeEventListener('touchend', handleTerminalTouchEnd);
-
-        if (!termRef.current) {
-          return;
-        }
-
-        if (isScrolling) {
-          return;
-        }
-        termRef.current.focus();
-      });
-    })
+    };
+    const handleTouchEnd = (event: TouchEvent): void => {
+      if (touchId === null || ![...event.changedTouches].some((touch) => touch.identifier === touchId)) return;
+      event.preventDefault();
+      event.stopPropagation();
+      if (!isScrolling && event.type !== 'touchcancel') term.focus();
+      touchY = null;
+      touchId = null;
+    };
+    element?.addEventListener('touchstart', handleTouchStart, { passive: false });
+    element?.addEventListener('touchmove', handleTouchMove, { passive: false });
+    element?.addEventListener('touchend', handleTouchEnd);
+    element?.addEventListener('touchcancel', handleTouchEnd);
 
     const refreshWinSize = (): void => {
       if (!termRef.current) {
@@ -365,6 +335,7 @@ export function TerminalTable(): React.JSX.Element {
     refreshWinSizeRef.current = refreshWinSize;
 
     const processMessage = (data: ArrayBuffer): void => {
+      if (disposed || data.byteLength < 1) return;
       const dataview = new DataView(data);
       const type = dataview.getUint8(0);
       switch (type) {
@@ -379,6 +350,7 @@ export function TerminalTable(): React.JSX.Element {
           break;
         }
         case 2: {
+          if (data.byteLength < 5) return;
           const cols = dataview.getUint16(1);
           const rows = dataview.getUint16(3);
           term.resize(cols, rows);
@@ -394,8 +366,8 @@ export function TerminalTable(): React.JSX.Element {
         refreshWinSizeRef.current();
       }
 
-      if (user?.xtermBuff) {
-        term.write(user.xtermBuff as Uint8Array);
+      if (session?.xtermBuff) {
+        term.write(session.xtermBuff as Uint8Array);
       }
     }
 
@@ -419,7 +391,7 @@ export function TerminalTable(): React.JSX.Element {
       };
       sockRef.current.onmessage = () => {
         // NOOP
-        if (user?.xtermBuff) {
+        if (session?.xtermBuff) {
           setXtermBuff?.(null);
         }
       };
@@ -433,6 +405,15 @@ export function TerminalTable(): React.JSX.Element {
     }
 
     return () => {
+      disposed = true;
+      window.removeEventListener('resize', handleWindowResize);
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      element?.removeEventListener('touchstart', handleTouchStart);
+      element?.removeEventListener('touchmove', handleTouchMove);
+      element?.removeEventListener('touchend', handleTouchEnd);
+      element?.removeEventListener('touchcancel', handleTouchEnd);
+      refreshWinSizeRef.current = null;
+      termRef.current = null;
       socketSetBackgroupd();
       const strXterm = addonserialize.serialize();
       if (strXterm) {
@@ -442,7 +423,7 @@ export function TerminalTable(): React.JSX.Element {
       hasInitialized.current = false;
       term.dispose();
     }
-  }, [t, checkSessionError, router, user, setXtermSocket, setXtermBuff]);
+  }, [t, checkSessionError, router, setXtermSocket, setXtermBuff]);
 
   const handleSpeedDialClick = (event: React.MouseEvent<HTMLDivElement>): void => {
     event.preventDefault();

@@ -36,7 +36,7 @@ class DataServer {
                 return error.message;
             }
 
-            return error.error;
+            return typeof error.error === 'string' && error.error ? error.error : 'Something went wrong';
         } catch {
             return 'Something went wrong';
         }
@@ -44,6 +44,8 @@ class DataServer {
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any  -- Expected
     async fetch<T>(path: string, method: string, headers: HeadersInit, bodyData: any, noSignOut = false): Promise<FetchResponse<T>> {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => { controller.abort(); }, 15_000);
         try {
             let response;
             if (method === 'GET' || method === 'HEAD' || method === 'OPTIONS') {
@@ -55,6 +57,7 @@ class DataServer {
                         ...headers,
                     },
                     credentials: 'include',
+                    signal: controller.signal,
                 });
             } else {
                 response = await fetch(path, {
@@ -65,16 +68,21 @@ class DataServer {
                     },
                     body: JSON.stringify(bodyData),
                     credentials: 'include',
+                    signal: controller.signal,
                 });
             }
 
             if (!response.ok) {
+                // Logout may race with expiry; an absent server session is already revoked.
+                if (response.status === 401 && noSignOut) return {};
                 const contentType = response.headers.get('Content-Type');
-                let error: string | ErrorResponse | Error;
-                if (contentType?.includes('application/json')) {
-                    error = await response.json() as string | ErrorResponse | Error;
-                } else {
-                    error = await response.text();
+                let error: string | ErrorResponse | Error = response.statusText || `HTTP ${response.status}`;
+                try {
+                    error = contentType?.includes('application/json')
+                        ? await response.json() as string | ErrorResponse | Error
+                        : await response.text() || error;
+                } catch {
+                    // Authentication handling must not depend on a valid response body.
                 }
 
                 if (response.status === 401 && !noSignOut) {
@@ -91,6 +99,8 @@ class DataServer {
             return { data: await response.json() as T };
         } catch (error) {
             return { error: error as ServerError };
+        } finally {
+            clearTimeout(timeout);
         }
     }
 }
@@ -441,7 +451,7 @@ class SmartDNSAPI {
             searchParams.append('domain_group', param.domain_group);
         }
 
-        if (param.reply_code) {
+        if (param.reply_code !== undefined) {
             searchParams.append('reply_code', param.reply_code.toString());
         }
 
@@ -453,11 +463,11 @@ class SmartDNSAPI {
             searchParams.append('timestamp_after', param.timestamp_after.toString());
         }
 
-        if (param.is_blocked) {
+        if (param.is_blocked !== undefined) {
             searchParams.append('is_blocked', param.is_blocked.toString());
         }
 
-        if (param.is_cached) {
+        if (param.is_cached !== undefined) {
             searchParams.append('is_cached', param.is_cached.toString());
         }
 
@@ -544,7 +554,7 @@ class SmartDNSAPI {
     }
 
     async UpdateSettings(settings: Map<string, string>): Promise<{ error?: ServerError }> {
-        return this.server.fetch<null>('/api/config/settings', 'PUT', {}, { settings });
+        return this.server.fetch<null>('/api/config/settings', 'PUT', {}, Object.fromEntries(settings));
     }
 
     async GetCacheDomains(): Promise<{ error?: ServerError, data?: CachedDomainInfo[] | null }> {
@@ -587,7 +597,8 @@ class SmartDNSAPI {
     }
 
     async GetWhois(domain: string): Promise<{ error?: ServerError, data?: WhoIS | null }> {
-        const ret = await this.server.fetch<WhoIS>(`/api/whois?domain=${domain}`, 'GET', {}, {});
+        const searchParams = new URLSearchParams({ domain });
+        const ret = await this.server.fetch<WhoIS>(`/api/whois?${searchParams.toString()}`, 'GET', {}, {});
         return ret;
     }
 

@@ -2,6 +2,8 @@
 
 import * as React from 'react';
 import { useMemo, useState } from 'react';
+import { readColumnVisibility, readColumnSizing, saveTablePreference, readTablePagination, getPageCursorParams, type PageCursor } from '@/components/dashboard/layout/table-preferences';
+import { useSearchParams } from 'next/navigation';
 import {
   MaterialReactTable,
   useMaterialReactTable,
@@ -24,6 +26,7 @@ import {
   QueryClientProvider,
   keepPreviousData,
   useQuery,
+  useQueryClient,
 } from '@tanstack/react-query';
 
 import { type DomainList, type QueryLogsParams, smartdnsServer } from '@/lib/backend/server';
@@ -31,7 +34,6 @@ import { useUser } from '@/hooks/use-user';
 import { useTranslation } from 'react-i18next';
 import { MRT_Localization_EN } from 'material-react-table/locales/en';
 import { MRT_Localization_ZH_HANS } from 'material-react-table/locales/zh-Hans';
-import i18n from '@/components/core/i18n';
 import { Delete, Domain } from '@mui/icons-material';
 import { type SnackbarOrigin, SnackbarProvider, useSnackbar } from 'notistack';
 import { getDomainTypeName, getDomainTypeId } from './domain-type';
@@ -51,16 +53,13 @@ interface UserApiResponse {
   };
 };
 
-interface PageCursor {
-  pageNumber: number;
-  firstID: number;
-  lastID: number;
-}
-
+const FILTER_COLUMNS = new Set(['id', 'domain', 'domain_type', 'client', 'domain_group', 'is_blocked', 'reply_code']);
 
 function TableQueryLogs(): React.JSX.Element {
   const [density, previewDensity] = useTableDensityPreview();
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const search = useSearchParams().toString();
+  const queryClient = useQueryClient();
   const { refresh: refreshGroupAppearance, registerGroups } = useGroupAppearance();
   const refreshClientIdentities = useRefreshClientIdentities();
 
@@ -136,6 +135,8 @@ function TableQueryLogs(): React.JSX.Element {
       {
         accessorKey: 'ping_time',
         header: t('Ping'),
+        enableColumnFilter: false,
+        enableColumnFilterModes: false,
         size: 90,
         enableColumnActions: false,
         Cell: ({ cell }) => {
@@ -207,6 +208,8 @@ function TableQueryLogs(): React.JSX.Element {
       {
         accessorKey: 'query_time',
         header: t('Query Time'),
+        enableColumnFilter: false,
+        enableColumnFilterModes: false,
         Cell: ({ cell }) => {
           const queryTime = cell.getValue<number>();
           return <span>{queryTime} ms</span>;
@@ -240,27 +243,11 @@ function TableQueryLogs(): React.JSX.Element {
   const [globalFilter, setGlobalFilter] = useState('');
   const [errorMsg, setErrorMsg] = useState("Error loading data");
   const [sorting, setSorting] = useState<MRTSortingState>([]);
-  const lastPage = React.useRef(0);
   const pageCursor = React.useRef<PageCursor | null>(null);
 
   // Load saved pagination settings
   const PAGINATION_KEY = 'querylog-table-pagination';
-  const savedPagination = localStorage.getItem(PAGINATION_KEY);
-  let jsonParsedPagination: MRTPaginationState = { pageIndex: 0, pageSize: 10 };
-
-  try {
-    if (savedPagination) {
-      jsonParsedPagination = JSON.parse(savedPagination) as MRTPaginationState;
-    }
-  } catch {
-    localStorage.removeItem(PAGINATION_KEY);
-    jsonParsedPagination = { pageIndex: 0, pageSize: 10 };
-  }
-
-  const [pagination, setPagination] = useState<MRTPaginationState>({
-    pageIndex: 0,
-    pageSize: jsonParsedPagination.pageSize,
-  });
+  const [pagination, setPagination] = useState<MRTPaginationState>(() => ({ ...readTablePagination(PAGINATION_KEY), pageIndex: 0 }));
   const [totalRowCount, setTotalRowCount] = useState(0);
   const totalCountFromParams = React.useRef(false);
 
@@ -273,7 +260,7 @@ function TableQueryLogs(): React.JSX.Element {
   }
 
   React.useEffect(() => {
-    const searchParams = new URLSearchParams(location.search);
+    const searchParams = new URLSearchParams(search);
     const filters: MRTColumnFiltersState = [];
 
     const timestamp: (dayjs.Dayjs | undefined)[] = [undefined, undefined];
@@ -300,12 +287,15 @@ function TableQueryLogs(): React.JSX.Element {
       }
 
       if (key === 'total_count') {
-        totalCountFromParams.current = true;
-        setTotalRowCount(Number(value));
+        const count = Number(value);
+        if (Number.isSafeInteger(count) && count >= 0) {
+          totalCountFromParams.current = true;
+          setTotalRowCount(count);
+        }
         continue;
       }
 
-      if (!columns.some((column) => column.accessorKey === key)) {
+      if (!FILTER_COLUMNS.has(key)) {
         continue;
       }
 
@@ -316,11 +306,11 @@ function TableQueryLogs(): React.JSX.Element {
       filters.push({ id: 'timestamp', value: timestamp });
     }
 
+    pageCursor.current = null;
     setColumnFilters(filters);
-    if (!shouldFetchData) {
-      setShouldFetchData(true);
-    }
-  }, [shouldFetchData, columns]);
+    setPagination((previous) => ({ ...previous, pageIndex: 0 }));
+    setShouldFetchData(true);
+  }, [search]);
 
   const {
     data: { data = [], meta } = {},
@@ -339,7 +329,8 @@ function TableQueryLogs(): React.JSX.Element {
       pagination.pageSize,
       sorting,
     ],
-    queryFn: async () => {
+    queryFn: async ({ signal }) => {
+      const scope = JSON.stringify([columnFilterFns, columnFilters, globalFilter, sorting]);
       const currentPageNumber = pagination.pageIndex + 1;
       const queryParam: QueryLogsParams = {
         'page_num': currentPageNumber,
@@ -351,23 +342,7 @@ function TableQueryLogs(): React.JSX.Element {
         queryParam['total_count'] = totalRowCount;
       }
 
-      if (pageCursor.current !== null && pageCursor.current !== undefined) {
-        if (currentPageNumber > lastPage.current && currentPageNumber === lastPage.current + 1) {
-          if (pageCursor.current.lastID >= 0) {
-            queryParam['cursor'] = pageCursor.current.lastID;
-            queryParam['total_count'] = totalRowCount;
-            queryParam['cursor_direction'] = 'next';
-          }
-        } else if (currentPageNumber < lastPage.current && currentPageNumber === lastPage.current - 1) {
-          if (pageCursor.current.firstID >= 0) {
-            queryParam['cursor'] = pageCursor.current.firstID;
-            queryParam['total_count'] = totalRowCount;
-            queryParam['cursor_direction'] = 'prev';
-          }
-        }
-      }
-
-      lastPage.current = currentPageNumber;
+      Object.assign(queryParam, getPageCursorParams(pageCursor.current, currentPageNumber, pagination.pageSize, scope));
 
       for (const filter of columnFilters) {
         if (filter.id === null || filter.id === undefined || filter.value === null || filter.value === undefined) {
@@ -390,6 +365,7 @@ function TableQueryLogs(): React.JSX.Element {
               queryParam['timestamp_before'] = new Date(timerange[1]).getTime();
             }
           }
+          continue;
         }
         const filterId = filter.id as keyof QueryLogsParams;
         if (filter.id === 'domain_type') {
@@ -417,19 +393,18 @@ function TableQueryLogs(): React.JSX.Element {
         throw new Error(errorMsg);
       }
 
-      let totalCount = 0;
-      if (data.data.total_count > 0 && data.data.domain_list.length > 0) {
-        const newPageCursor: PageCursor = {
+      const totalCount = data.data.total_count;
+      if (!signal.aborted) {
+        pageCursor.current = data.data.domain_list.length > 0 ? {
           firstID: data.data.domain_list[0].id,
           lastID: data.data.domain_list.at(-1)!.id,
-          pageNumber: currentPageNumber + 1,
-        };
-
-        pageCursor.current = newPageCursor;
-        totalCount = data.data.total_count;
+          pageNumber: currentPageNumber,
+          pageSize: pagination.pageSize,
+          scope,
+          totalCount,
+        } : null;
+        setTotalRowCount(totalCount);
       }
-
-      setTotalRowCount(totalCount)
       const resp: UserApiResponse = {
         data: data.data.domain_list,
         meta: {
@@ -454,7 +429,7 @@ function TableQueryLogs(): React.JSX.Element {
     } else {
       setTableLocales(MRT_Localization_EN);
     }
-  }, []);
+  }, [i18n.language]);
 
   const handleRowWhois = React.useCallback(async (row: MRTRow<DomainList>) => {
     const domain = row.original.domain;
@@ -506,7 +481,10 @@ function TableQueryLogs(): React.JSX.Element {
     }
 
     enqueueSnackbar(t('Delete query log {{id}} {{domain}} successfully.', { id, domain }), { variant: 'success' });
-  }, [t, enqueueSnackbar]);
+    pageCursor.current = null;
+    totalCountFromParams.current = false;
+    await queryClient.invalidateQueries({ queryKey: ['table-data'] });
+  }, [t, enqueueSnackbar, queryClient]);
 
   const renderRowMenuItem = (closeMenu: () => void, row: MRTRow<DomainList>, table: MRTTableInstance<DomainList>): React.ReactNode[] => (
     [
@@ -543,39 +521,8 @@ function TableQueryLogs(): React.JSX.Element {
   const COLUMN_VISIBILITY_KEY = 'querylog-table-column-visibility';
   const COLUMN_SIZING_KEY = 'querylog-table-column-sizing';
 
-  const savedColumnVisibility = localStorage.getItem(COLUMN_VISIBILITY_KEY);
-  const savedColumnSizing = localStorage.getItem(COLUMN_SIZING_KEY);
-
-  let jsonParsedColumnVisibility: Record<string, boolean> = {};
-  let jsonParsedColumnSizing: Record<string, number> = {};
-
-  try {
-    if (savedColumnVisibility) {
-      jsonParsedColumnVisibility = JSON.parse(savedColumnVisibility) as Record<string, boolean>;
-    }
-  } catch {
-    localStorage.removeItem(COLUMN_VISIBILITY_KEY);
-    jsonParsedColumnVisibility = {};
-  }
-
-  try {
-    if (savedColumnSizing) {
-      jsonParsedColumnSizing = JSON.parse(savedColumnSizing) as Record<string, number>;
-    }
-  } catch {
-    localStorage.removeItem(COLUMN_SIZING_KEY);
-    jsonParsedColumnSizing = {};
-  }
-
-  const initialColumnVisibility = jsonParsedColumnVisibility || {
-    "id": false,
-    "is_blocked": false,
-    "domain_group": false,
-    "query_time": false,
-    "reply_code": false,
-  };
-  const [columnVisibility, setColumnVisibility] = React.useState(initialColumnVisibility);
-  const [columnSizing, setColumnSizing] = React.useState(jsonParsedColumnSizing);
+  const [columnVisibility, setColumnVisibility] = React.useState(() => readColumnVisibility(COLUMN_VISIBILITY_KEY));
+  const [columnSizing, setColumnSizing] = React.useState(() => readColumnSizing(COLUMN_SIZING_KEY));
 
   const widthText = React.useCallback((row: DomainList, id: string) => {
     if (id === 'timestamp') return new Date(row.timestamp).toLocaleString();
@@ -639,10 +586,17 @@ function TableQueryLogs(): React.JSX.Element {
         children: errorMsg,
       }
       : undefined,
-    onColumnFilterFnsChange: setColumnFilterFns,
+    onColumnFilterFnsChange: (updater) => {
+      pageCursor.current = null;
+      totalCountFromParams.current = false;
+      setColumnFilterFns(updater);
+      setPagination((previous) => ({ ...previous, pageIndex: 0 }));
+    },
     onColumnFiltersChange: (filters) => {
       pageCursor.current = null;
+      totalCountFromParams.current = false;
       setColumnFilters(filters);
+      setPagination((previous) => ({ ...previous, pageIndex: 0 }));
     },
     onGlobalFilterChange: (filters: React.SetStateAction<string>) => {
       pageCursor.current = null;
@@ -653,8 +607,9 @@ function TableQueryLogs(): React.JSX.Element {
         typeof updaterOrValue === 'function'
           ? updaterOrValue(pagination)
           : updaterOrValue;
+      if (newPagination.pageSize !== pagination.pageSize) pageCursor.current = null;
       setPagination(newPagination);
-      localStorage.setItem(PAGINATION_KEY, JSON.stringify(newPagination));
+      saveTablePreference(PAGINATION_KEY, newPagination);
     },
     onSortingChange: setSorting,
     onColumnVisibilityChange: (updaterOrValue) => {
@@ -663,7 +618,7 @@ function TableQueryLogs(): React.JSX.Element {
               typeof updaterOrValue === 'function'
                   ? updaterOrValue(prev)
                   : updaterOrValue;
-          localStorage.setItem(COLUMN_VISIBILITY_KEY, JSON.stringify(newVisibility));
+          saveTablePreference(COLUMN_VISIBILITY_KEY, newVisibility);
           return newVisibility;
         });
     },
@@ -674,7 +629,7 @@ function TableQueryLogs(): React.JSX.Element {
             typeof updaterOrValue === 'function'
               ? updaterOrValue(prev)
               : updaterOrValue;
-          localStorage.setItem(COLUMN_SIZING_KEY, JSON.stringify(newSizing));
+          saveTablePreference(COLUMN_SIZING_KEY, newSizing);
           return newSizing;
         });
     },
@@ -723,7 +678,7 @@ function TableQueryLogs(): React.JSX.Element {
       },
       pagination: {
         pageIndex: 0,
-        pageSize: jsonParsedPagination.pageSize,
+        pageSize: pagination.pageSize,
       },
     },
     state: {
@@ -795,7 +750,7 @@ export function QueryLogTable(): React.JSX.Element {
         anchorOrigin={state}
         maxSnack={5} autoHideDuration={6000}>
         <Card>
-          <TableQueryLogs />
+          <React.Suspense fallback={null}><TableQueryLogs /></React.Suspense>
         </Card>
       </SnackbarProvider>
     </QueryClientProvider>

@@ -85,6 +85,8 @@ export function Log(): React.JSX.Element {
   const controlLogRef = React.useRef<((event: number, data: string) => void) | null>(null);
   const [logType, setLogType] = React.useState('runlog');
   const [isPaused, setIsPaused] = React.useState(false);
+  const pausedRef = React.useRef(false);
+  const [connected, setConnected] = React.useState(false);
   const [lineCount, setLineCount] = React.useState(0);
   const [notBottomCount, setNotBottomCount] = React.useState(0);
   const maxLines = 2000;
@@ -107,6 +109,8 @@ export function Log(): React.JSX.Element {
 
     const socket = new WebSocket(api_url);
     socketRef.current = socket;
+    setConnected(false);
+    let disposed = false;
 
     const appendLog = (color: string, log: string): void => {
       const colorMap: Record<string, string> = {
@@ -134,6 +138,7 @@ export function Log(): React.JSX.Element {
     }
 
     const processMessage = (data: ArrayBuffer): void => {
+      if (disposed) return;
       const dataview = new DataView(data);
       let messageOffset = 1;
       let color = "default";
@@ -174,6 +179,7 @@ export function Log(): React.JSX.Element {
     }
 
     const controlLog = (event: number, data: string): void => {
+      if (socket.readyState !== WebSocket.OPEN) return;
       switch (event) {
         case 1: {
           /* pause */
@@ -230,6 +236,9 @@ export function Log(): React.JSX.Element {
     };
 
     socket.onopen = () => {
+      if (disposed) return;
+      setConnected(true);
+      if (pausedRef.current) controlLog(1, '');
       appendLog("white", t('Connected to {{logtype}} stream.\n', { logtype: log_type_message }));
     };
 
@@ -248,6 +257,8 @@ export function Log(): React.JSX.Element {
     }
 
     socket.onclose = (event) => {
+      if (disposed) return;
+      setConnected(false);
       appendLog("white", t('Disconnected from {{logtype}} stream.\n', { logtype: log_type_message }));
       if (event.code >= 4001 && event.code <= 4999) {
         appendLog("red", t('Error') + " : " + t(event.reason) + "\n");
@@ -255,8 +266,10 @@ export function Log(): React.JSX.Element {
     }
 
     return () => {
-      if (socketRef.current) {
-        socketRef.current.close();
+      disposed = true;
+      controlLogRef.current = null;
+      socket.close();
+      if (socketRef.current === socket) {
         socketRef.current = null;
       }
     }
@@ -293,12 +306,14 @@ export function Log(): React.JSX.Element {
   };
 
   const handleButtonClick = (): void => {
-    if (controlLogRef.current) {
-      setIsPaused(!isPaused);
-      if (isPaused) {
-        controlLogRef.current(2, '');
-      } else {
+    if (connected && controlLogRef.current) {
+      const next = !pausedRef.current;
+      pausedRef.current = next;
+      setIsPaused(next);
+      if (next) {
         controlLogRef.current(1, '');
+      } else {
+        controlLogRef.current(2, '');
       }
     }
   };
@@ -315,10 +330,7 @@ export function Log(): React.JSX.Element {
             value={logType}
             size="small"
             onChange={(event: SelectChangeEvent) => {
-              if (socketRef.current) {
-                socketRef.current.close();
-                socketRef.current = null;
-              }
+              setConnected(false);
               setLogType(event.target.value);
             }}
           >
@@ -329,6 +341,7 @@ export function Log(): React.JSX.Element {
             size="small"
             onClick={() => { handleButtonClick(); }}
             color={isPaused ? 'secondary' : 'primary'}
+            disabled={!connected}
           >{isPaused ? t('Resume') : t('Pause')}</Button>
           <Button variant="contained"
             size="small"

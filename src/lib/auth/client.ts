@@ -57,6 +57,9 @@ class AuthClient {
   private refreshTokenInterval: number = 1000 * 60;
   private user: User = { id: "", sideNavVisibility: new Map<string, boolean>() };
   private isLogin = false;
+  private sessionGeneration = 0;
+  private signOutTask: Promise<{ error?: string }> | null = null;
+  private signOutListeners = new Set<(error?: string) => void>();
 
   constructor() {
     smartdnsServer.setSignOut(this.signOut.bind(this));
@@ -64,6 +67,11 @@ class AuthClient {
 
   destroy(): void {
     this.stopRefreshTokenInterval();
+  }
+
+  subscribeSignOut(listener: (error?: string) => void): () => void {
+    this.signOutListeners.add(listener);
+    return () => { this.signOutListeners.delete(listener); };
   }
 
   private startRefreshTokenInterval(): void {
@@ -95,10 +103,13 @@ class AuthClient {
   }
 
   async refreshTokens(): Promise<{ error?: ServerError }> {
+    const generation = this.sessionGeneration;
     const { data, error } = await smartdnsServer.RefreshToken();
     if (error) {
       return { error };
     }
+    // An in-flight refresh must not restore a session after local sign-out.
+    if (!this.isLogin || generation !== this.sessionGeneration) return {};
 
     let expirationSeconds = Number(data?.expires_in ?? 60 * 10);
     if (expirationSeconds < 60) {
@@ -112,6 +123,8 @@ class AuthClient {
   }
 
   async signInWithPassword(params: SignInWithPasswordParams): Promise<{ error?: ServerError }> {
+    // Finish revoking the previous cookie before creating a new server session.
+    if (this.signOutTask) await this.signOutTask;
     const { username, password } = params;
 
     const { data, error } = await smartdnsServer.Login(username, password);
@@ -126,6 +139,7 @@ class AuthClient {
 
     const token = generateToken(expirationSeconds);
     localStorage.setItem('custom-auth-token', token);
+    this.sessionGeneration++;
     this.user.username = username;
 
     this.checkStartRefreshTokenInterval();
@@ -182,17 +196,33 @@ class AuthClient {
   }
 
   async signOut(): Promise<{ error?: string }> {
-    localStorage.removeItem('custom-auth-token');
-    if (this.isLogin) {
-      const _result = await smartdnsServer.Logout();
-      logger.debug('[AuthClient]: signOut');
+    if (this.signOutTask) return this.signOutTask;
+    this.signOutTask = this.finishSignOut();
+    try {
+      return await this.signOutTask;
+    } finally {
+      this.signOutTask = null;
     }
-    localStorage.removeItem('side-nav-visibility');
-    this.stopRefreshTokenInterval();
-    this.user.id = "";
-    this.user.username = "";
+  }
+
+  private async finishSignOut(): Promise<{ error?: string }> {
+    const shouldLogout = this.isLogin;
     this.isLogin = false;
-    this.user.sideNavVisibility = new Map<string, boolean>();
+    this.sessionGeneration++;
+    this.stopRefreshTokenInterval();
+    localStorage.removeItem('custom-auth-token');
+    localStorage.removeItem('side-nav-visibility');
+    this.user = { id: '', sideNavVisibility: new Map<string, boolean>() };
+    for (const listener of this.signOutListeners) listener();
+    if (shouldLogout) {
+      const { error } = await smartdnsServer.Logout();
+      logger.debug('[AuthClient]: signOut');
+      if (error) {
+        const message = smartdnsServer.getErrorMessage(error);
+        for (const listener of this.signOutListeners) listener(message);
+        return { error: message };
+      }
+    }
     return {};
   }
 

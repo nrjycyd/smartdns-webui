@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import { useMemo, useState } from 'react';
+import { readColumnVisibility, readColumnSizing, saveTablePreference } from '@/components/dashboard/layout/table-preferences';
 import {
   MaterialReactTable,
   useMaterialReactTable,
@@ -17,12 +18,11 @@ import { useAdaptiveColumns } from '@/components/dashboard/layout/use-adaptive-c
 import { useTranslation } from 'react-i18next';
 import { MRT_Localization_EN } from 'material-react-table/locales/en';
 import { MRT_Localization_ZH_HANS } from 'material-react-table/locales/zh-Hans';
-import i18n from '@/components/core/i18n';
 import { type SnackbarOrigin, SnackbarProvider } from 'notistack';
 
 function TableUpstreamServers(): React.JSX.Element {
   const [density, previewDensity] = useTableDensityPreview();
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [data, setData] = useState<UpStreamServers[]>([]);
   const [isError, setIsError] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -30,33 +30,8 @@ function TableUpstreamServers(): React.JSX.Element {
   const COLUMN_VISIBILITY_KEY = 'upstream-servers-table-column-visibility';
   const COLUMN_SIZING_KEY = 'upstream-servers-table-column-sizing';
 
-  const savedColumnVisibility = localStorage.getItem(COLUMN_VISIBILITY_KEY);
-  const savedColumnSizing = localStorage.getItem(COLUMN_SIZING_KEY);
-
-  let jsonParsedColumnVisibility: Record<string, boolean> = {};
-  let jsonParsedColumnSizing: Record<string, number> = {};
-
-  try {
-    if (savedColumnVisibility) {
-      jsonParsedColumnVisibility = JSON.parse(savedColumnVisibility) as Record<string, boolean>;
-    }
-  } catch {
-    localStorage.removeItem(COLUMN_VISIBILITY_KEY);
-    jsonParsedColumnVisibility = {};
-  }
-
-  try {
-    if (savedColumnSizing) {
-      jsonParsedColumnSizing = JSON.parse(savedColumnSizing) as Record<string, number>;
-    }
-  } catch {
-    localStorage.removeItem(COLUMN_SIZING_KEY);
-    jsonParsedColumnSizing = {};
-  }
-
-  const initialColumnVisibility = jsonParsedColumnVisibility || {};
-  const [columnVisibility, setColumnVisibility] = React.useState(initialColumnVisibility);
-  const [columnSizing, setColumnSizing] = React.useState(jsonParsedColumnSizing);
+  const [columnVisibility, setColumnVisibility] = React.useState(() => readColumnVisibility(COLUMN_VISIBILITY_KEY));
+  const [columnSizing, setColumnSizing] = React.useState(() => readColumnSizing(COLUMN_SIZING_KEY));
 
   const columns = useMemo<MRTColumnDef<UpStreamServers>[]>(
     () => [
@@ -181,7 +156,7 @@ function TableUpstreamServers(): React.JSX.Element {
     } else {
       setTableLocales(MRT_Localization_EN);
     }
-  }, []);
+  }, [i18n.language]);
 
 
   const { colorScheme } = useColorScheme();
@@ -240,7 +215,7 @@ function TableUpstreamServers(): React.JSX.Element {
               typeof updaterOrValue === 'function'
                   ? updaterOrValue(prev)
                   : updaterOrValue;
-          localStorage.setItem(COLUMN_VISIBILITY_KEY, JSON.stringify(newVisibility));
+          saveTablePreference(COLUMN_VISIBILITY_KEY, newVisibility);
           return newVisibility;
         });
     },
@@ -251,7 +226,7 @@ function TableUpstreamServers(): React.JSX.Element {
             typeof updaterOrValue === 'function'
               ? updaterOrValue(prev)
               : updaterOrValue;
-          localStorage.setItem(COLUMN_SIZING_KEY, JSON.stringify(newSizing));
+          saveTablePreference(COLUMN_SIZING_KEY, newSizing);
           return newSizing;
         });
     },
