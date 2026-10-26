@@ -35,6 +35,7 @@ import i18n from '@/components/core/i18n';
 import { Delete, Domain } from '@mui/icons-material';
 import { type SnackbarOrigin, SnackbarProvider, useSnackbar } from 'notistack';
 import { getDomainTypeName, getDomainTypeId } from './domain-type';
+import { formatQueryClientAddress, QUERY_CLIENT_ADDRESS_WIDTH_SAMPLES } from './client-address';
 import { GroupLabel, useGroupAppearance } from './group-label';
 import { useTableDensityPreview } from '@/components/dashboard/layout/table-density-provider';
 import { useAdaptiveColumns } from '@/components/dashboard/layout/use-adaptive-columns';
@@ -108,9 +109,9 @@ function TableQueryLogs(): React.JSX.Element {
         muiTableBodyCellProps: {
           sx: singleLineCellSx,
         },
-        Cell: ({ cell, renderedCellValue }) => (
+        Cell: ({ cell }) => (
           <Tooltip title={cell.getValue<string>()} arrow placement="top">
-            <span>{renderedCellValue}</span>
+            <span>{formatQueryClientAddress(cell.getValue<string>())}</span>
           </Tooltip>
         ),
       },
@@ -585,7 +586,7 @@ function TableQueryLogs(): React.JSX.Element {
     id: ['99999999'],
     domain: [],
     domain_type: ['AAAA', 'HTTPS'],
-    client: ['255.255.255.255'],
+    client: QUERY_CLIENT_ADDRESS_WIDTH_SAMPLES,
     timestamp: [new Date(8888, 10, 28, 11, 59, 59).toLocaleString(), new Date(8888, 10, 28, 23, 59, 59).toLocaleString()],
     ping_time: ['999.9 ms'],
     domain_group: ['DIRECT', 'PROXY', 'REJECT', t('Default')],

@@ -58,7 +58,7 @@ export function useAdaptiveColumns<T extends object>({ layout: pageLayout, colum
       const id = column.id ?? column.accessorKey;
       if (!id || visibility[id] === false) return [];
       const samples = referenceText?.[id] ?? data.slice(0, 80).map((row) => text ? text(row, id) : String(row[id as keyof T] ?? ''));
-      let content = measureColumnContent(id, samples, measure, pageLayout !== 'query-log');
+      let content = measureColumnContent(id, samples, measure, pageLayout !== 'query-log' || referenceText?.[id] !== undefined);
       if (id === 'domain_type') content = Math.max(content, measure('AAAA'), measure('HTTPS'));
       if (id === 'ping_time') content = Math.max(content, measure('999.9 ms'));
       let floor = Math.max(80, Math.min(300, Math.ceil(content + contentAllowance)));
@@ -76,7 +76,10 @@ export function useAdaptiveColumns<T extends object>({ layout: pageLayout, colum
         }
         default: {
           if (/timestamp/.test(id)) floor = Math.max(170, Math.ceil(content + contentAllowance));
-          else if (/^ip$|^client$|_ip$/.test(id)) floor = Math.max(140, Math.min(pageLayout === 'query-log' ? 220 : pageLayout === 'clients' ? 440 : 320, Math.ceil(content + contentAllowance)));
+          else if (/^ip$|^client$|_ip$/.test(id)) {
+            const limit = pageLayout === 'query-log' && referenceText?.[id] ? Number.POSITIVE_INFINITY : pageLayout === 'query-log' ? 220 : pageLayout === 'clients' ? 440 : 320;
+            floor = Math.max(140, Math.min(limit, Math.ceil(content + contentAllowance)));
+          }
         }
       }
       const controls = (filtering && column.enableColumnFilter !== false ? 20 : 0) + (sorting && column.enableSorting !== false ? 20 : 0) + (columnActions && column.enableColumnActions !== false ? 24 : 0);
