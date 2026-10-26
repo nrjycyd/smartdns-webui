@@ -4,6 +4,7 @@ import GlobalStyles from '@mui/material/GlobalStyles';
 
 import { AuthGuard } from '@/components/auth/auth-guard';
 import ClientLayout from '@/components/dashboard/layout/client-layout';
+import { DashboardPreferencesProvider } from '@/components/dashboard/layout/preferences-provider';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -29,7 +30,9 @@ export default function Layout({ children }: LayoutProps): React.JSX.Element {
           },
         }}
       />
-      <ClientLayout> {children} </ClientLayout>
+      <DashboardPreferencesProvider>
+        <ClientLayout> {children} </ClientLayout>
+      </DashboardPreferencesProvider>
     </AuthGuard>
   );
 }

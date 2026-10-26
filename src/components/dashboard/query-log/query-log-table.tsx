@@ -35,7 +35,7 @@ import i18n from '@/components/core/i18n';
 import { Delete, Domain } from '@mui/icons-material';
 import { type SnackbarOrigin, SnackbarProvider, useSnackbar } from 'notistack';
 import { getDomainTypeName, getDomainTypeId } from './domain-type';
-import { GroupAppearanceProvider, GroupLabel, useGroupAppearance } from './group-label';
+import { GroupLabel, useGroupAppearance } from './group-label';
 
 
 interface UserApiResponse {
@@ -54,7 +54,7 @@ interface PageCursor {
 
 function TableQueryLogs(): React.JSX.Element {
   const { t } = useTranslation();
-  const { refresh: refreshGroupAppearance } = useGroupAppearance();
+  const { refresh: refreshGroupAppearance, registerGroups } = useGroupAppearance();
 
   const columns = useMemo<MRTColumnDef<DomainList>[]>(
     () => [
@@ -442,6 +442,8 @@ function TableQueryLogs(): React.JSX.Element {
     placeholderData: keepPreviousData,
   });
 
+  React.useEffect(() => { registerGroups(data.map((row) => row.domain_group)); }, [data, registerGroups]);
+
   React.useEffect(() => {
     if (i18n.language === null || i18n.language === undefined) {
       return;
@@ -758,11 +760,9 @@ export function QueryLogTable(): React.JSX.Element {
       <SnackbarProvider
         anchorOrigin={state}
         maxSnack={5} autoHideDuration={6000}>
-        <GroupAppearanceProvider>
-          <Card>
-            <TableQueryLogs />
-          </Card>
-        </GroupAppearanceProvider>
+        <Card>
+          <TableQueryLogs />
+        </Card>
       </SnackbarProvider>
     </QueryClientProvider>
   );

@@ -6,6 +6,7 @@ import Stack from '@mui/material/Stack';
 import { UpdatePasswordForm } from '@/components/dashboard/settings/update-password-form';
 import { ChangeLang } from '@/components/dashboard/settings/change-lang';
 import { InstallApp } from '@/components/dashboard/settings/install-app';
+import { GroupAppearanceSettings } from '@/components/dashboard/settings/group-appearance-settings';
 import { TabContext, TabList, TabPanel } from '@mui/lab';
 import { Box, Card, CardContent, Tab, Typography } from '@mui/material';
 import { useTranslation } from 'react-i18next';
@@ -22,6 +23,10 @@ const tabs = [
   {
     label: 'Install app',
     pannel: <InstallApp />,
+  },
+  {
+    label: 'Group appearance',
+    pannel: <GroupAppearanceSettings />,
   }
 ];
 
@@ -40,7 +45,7 @@ export default function SettingsTab(): React.JSX.Element {
           <TabContext value={value}>
             <CardContent>
               <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
-                <TabList onChange={handleChange}>
+                <TabList onChange={handleChange} variant="scrollable" scrollButtons="auto">
                   {tabs.map((tab, index) => {
                     return <Tab key={tab.label} label={t(tab.label)} value={index.toString()} />
                   })}

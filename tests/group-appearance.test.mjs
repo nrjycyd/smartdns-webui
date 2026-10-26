@@ -7,7 +7,7 @@ const source = await readFile(new URL('../src/components/dashboard/query-log/gro
 const compiled = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
 const exports = {};
 new Function('exports', compiled)(exports);
-const { EMPTY_GROUP_APPEARANCES, getGroupAppearance, parseGroupAppearances } = exports;
+const { EMPTY_GROUP_APPEARANCES, getGroupAppearance, parseGroupAppearances, mergeGroupAppearances, parseGroupOverrides, serializeGroupOverrides, setGroupOverride, splitThemeColor, joinThemeColors } = exports;
 
 test('empty, invalid and unrelated JSON preserve the original display', () => {
   for (const text of ['', '   ', '{', '<html>not found</html>', '{}', 'null', '[]', '{"groups":null}', '{"groups":[]}', '{"groups":{}}']) {
@@ -70,4 +70,59 @@ test('theme-aware CSS colors remain configurable without a new JSON field', () =
   const parsed = parseGroupAppearances('{"groups":{"REJECT":{"color":"light-dark(#c62828, #ef9a9a)","icon":"keyline-icons:shield-off-duotone","iconColor":"light-dark(red, orange)"}}}');
   assert.equal(parsed.REJECT.color, 'light-dark(#c62828, #ef9a9a)');
   assert.equal(parsed.REJECT.iconColor, 'light-dark(red, orange)');
+});
+
+test('local overrides preserve explicit empty fields and inherit only absent fields', () => {
+  const defaults = parseGroupAppearances('{"groups":{"REJECT":{"color":"red","icon":"mdi:home","iconColor":"orange"}}}');
+  const custom = parseGroupOverrides('{"version":1,"groups":{"REJECT":{"color":"","icon":""}}}');
+  assert.deepEqual(custom.REJECT, { color: '', icon: '' });
+  assert.equal(getGroupAppearance(mergeGroupAppearances(defaults, custom), 'REJECT'), undefined);
+  const iconOnly = parseGroupOverrides('{"version":1,"groups":{"REJECT":{"iconColor":""}}}');
+  assert.deepEqual(mergeGroupAppearances(defaults, iconOnly).REJECT, { color: 'red', icon: 'mdi:home' });
+});
+
+test('file updates reach inherited fields without undoing explicit local clears', () => {
+  const custom = parseGroupOverrides('{"groups":{"REJECT":{"icon":""}}}');
+  const first = parseGroupAppearances('{"groups":{"REJECT":{"color":"red","icon":"mdi:home"}}}');
+  const next = parseGroupAppearances('{"groups":{"REJECT":{"color":"blue","icon":"mdi:account"}}}');
+  assert.deepEqual(mergeGroupAppearances(first, custom).REJECT, { color: 'red' });
+  assert.deepEqual(mergeGroupAppearances(next, custom).REJECT, { color: 'blue' });
+});
+
+test('resetting a field removes only its override and restores the file default', () => {
+  let custom = setGroupOverride(EMPTY_GROUP_APPEARANCES, 'REJECT', 'color', '');
+  custom = setGroupOverride(custom, 'REJECT', 'icon', 'mdi:home');
+  custom = setGroupOverride(custom, 'REJECT', 'color', undefined);
+  assert.deepEqual(custom, { REJECT: { icon: 'mdi:home' } });
+  custom = setGroupOverride(custom, 'REJECT', 'icon', undefined);
+  assert.deepEqual(custom, {});
+});
+
+test('exports contain only custom fields and preserve clears across import', () => {
+  const custom = { PROXY: { iconColor: '' }, REJECT: { color: '#112233' } };
+  const text = serializeGroupOverrides(custom);
+  assert.deepEqual(JSON.parse(text), { version: 1, groups: { REJECT: { color: '#112233' }, PROXY: { iconColor: '' } } });
+  assert.deepEqual(parseGroupOverrides(text), custom);
+});
+
+test('bad local data and unsupported versions are rejected instead of silently overwriting settings', () => {
+  for (const text of ['', '{}', 'null', '[]', '{"version":2,"groups":{}}', '{"groups":{"REJECT":{"icon":"@custom:mdi:home"}}}', '{"groups":{"REJECT":{"color":7}}}']) {
+    assert.throws(() => parseGroupOverrides(text));
+  }
+  assert.deepEqual(parseGroupOverrides('{"groups":{"REJECT":{"color":null,"icon":null}}}'), { REJECT: { color: '', icon: '' } });
+});
+
+test('prototype-like local group names remain ordinary own properties', () => {
+  const custom = setGroupOverride({}, '__proto__', 'color', 'red');
+  const restored = parseGroupOverrides(serializeGroupOverrides(custom));
+  assert.equal(getGroupAppearance(restored, '__proto__').color, 'red');
+  assert.equal({}.color, undefined);
+  assert.equal(getGroupAppearance(mergeGroupAppearances({}, restored), 'toString'), undefined);
+});
+
+test('theme color editing understands nested color functions and fixed colors', () => {
+  assert.deepEqual(splitThemeColor('light-dark(rgb(1, 2, 3), hsl(30, 40%, 50%))'), ['rgb(1, 2, 3)', 'hsl(30, 40%, 50%)']);
+  assert.deepEqual(splitThemeColor('#112233'), ['#112233', '#112233']);
+  assert.equal(joinThemeColors('#112233', '#112233'), '#112233');
+  assert.equal(joinThemeColors('#112233', '#aabbcc'), 'light-dark(#112233, #aabbcc)');
 });
