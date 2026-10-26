@@ -1,20 +1,17 @@
 "use client";
 
 import * as React from 'react';
-import Box from '@mui/material/Box';
 import type { SxProps } from '@mui/material/styles';
-import Table from '@mui/material/Table';
-import TableBody from '@mui/material/TableBody';
 import TableCell from '@mui/material/TableCell';
-import TableHead from '@mui/material/TableHead';
 import TableRow from '@mui/material/TableRow';
 import { smartdnsServer } from '@/lib/backend/server';
 import type { ServerError, TopDomains } from '@/lib/backend/server';
 import { useUser } from '@/hooks/use-user';
 import { CardLoading } from './card-loading';
 import { paths } from '@/paths';
-import { Link } from '@mui/material';
+import { Link, Tooltip } from '@mui/material';
 import { useTranslation } from 'react-i18next';
+import { RankingTable } from './ranking-table';
 
 export interface TopDomainsProps {
   domains: TopDomains[];
@@ -24,15 +21,7 @@ export interface TopDomainsProps {
 function TopDomainsTable({ domains }: TopDomainsProps): React.JSX.Element {
   const { t } = useTranslation();
   return (
-    <Box sx={{ overflowX: 'auto' }}>
-      <Table sx={{ minWidth: 100 }}>
-        <TableHead>
-          <TableRow>
-            <TableCell>{t('Domain')}</TableCell>
-            <TableCell>{t('Count')}</TableCell>
-          </TableRow>
-        </TableHead>
-        <TableBody>
+    <RankingTable label={t('Domain')} counts={domains.map((domain) => domain.query_count)}>
           {domains.map((domain) => {
             const encodedDomain = encodeURIComponent(domain.domain);
             let url = `${paths.dashboard.queryLog}?domain=${encodedDomain}&total_count=${domain.query_count}`;
@@ -48,19 +37,17 @@ function TopDomainsTable({ domains }: TopDomainsProps): React.JSX.Element {
             return (
               <TableRow key={domain.domain}>
                 <TableCell>
-                  <Link href={url} >{domain.domain}</Link>
+                  <Tooltip title={domain.domain}><Link href={url} sx={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis' }}>{domain.domain}</Link></Tooltip>
                 </TableCell>
                 <TableCell>{domain.query_count}</TableCell>
               </TableRow>
             );
           })}
-        </TableBody>
-      </Table>
-    </Box>
+    </RankingTable>
   );
 }
 
-export function TopDomainsCard(sx: SxProps): React.JSX.Element {
+export function TopDomainsCard({ sx }: { sx?: SxProps }): React.JSX.Element {
   const { checkSessionError } = useUser();
   const [domains, setDomains] = React.useState<TopDomains[]>([]);
   const [loading, setLoading] = React.useState<boolean>(true);
@@ -90,10 +77,8 @@ export function TopDomainsCard(sx: SxProps): React.JSX.Element {
   }, [checkSessionError]);
 
   return (
-    <Box>
-      <CardLoading title={t("Top Domains")} isLoading={loading} errorMsg={errorMsg}>
-        <TopDomainsTable domains={domains} sx={sx} />
+      <CardLoading title={t("Top Domains")} isLoading={loading} errorMsg={errorMsg} sx={sx}>
+        <TopDomainsTable domains={domains} />
       </CardLoading>
-    </Box>
   )
 }

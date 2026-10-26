@@ -66,10 +66,10 @@ export default function Page(): React.JSX.Element {
         {/* <Grid size={{lg:6, md:12, xs:12}}>
         <OverViewCard sx={{ height: '100%', width: '100%' }} />
       </Grid> */}
-        <Grid size={{ lg: 6, md: 12, xs: 12 }}>
+        <Grid size={{ lg: 6, md: 12, xs: 12 }} sx={{ display: 'flex', minWidth: 0 }}>
           <TopClientsCard sx={{ height: '100%', width: '100%' }} />
         </Grid>
-        <Grid size={{ lg: 6, md: 12, xs: 12 }}>
+        <Grid size={{ lg: 6, md: 12, xs: 12 }} sx={{ display: 'flex', minWidth: 0 }}>
           <TopDomainsCard sx={{ height: '100%', width: '100%' }} />
         </Grid>
       </Grid>

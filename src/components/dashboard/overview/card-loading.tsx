@@ -1,5 +1,6 @@
 import { Alert, Box, Card, CardHeader, CircularProgress, Divider,} from "@mui/material";
 import * as React from "react";
+import type { SxProps, Theme } from '@mui/material/styles';
 
 
 interface CardLoadingProps {
@@ -8,12 +9,13 @@ interface CardLoadingProps {
   children?: React.ReactNode;
   isLoading?: boolean;
   errorMsg?: string | null;
+  sx?: SxProps<Theme>;
 }
 
 
-export function CardLoading({ title, titleAction, children, isLoading, errorMsg }: CardLoadingProps): React.JSX.Element {
+export function CardLoading({ title, titleAction, children, isLoading, errorMsg, sx }: CardLoadingProps): React.JSX.Element {
   return (
-    <Card>
+    <Card sx={sx}>
       <CardHeader title={title} action={titleAction}/>
       <Divider />
       {isLoading && errorMsg === null? (
