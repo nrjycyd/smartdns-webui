@@ -27,6 +27,7 @@
   "Client": "Client",
   "Time": "Zeit",
   "Ping": "Ping",
+  "No latency data available": "Keine Latenzdaten verfügbar",
   "Group": "Gruppe",
   "Default": "Standard",
   "Show Default Value": "Standardwert anzeigen",

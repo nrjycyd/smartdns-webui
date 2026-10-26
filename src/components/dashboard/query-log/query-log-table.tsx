@@ -15,7 +15,7 @@ import {
   type MRT_Cell as MRTCell,
   type MRT_TableInstance as MRTTableInstance,
 } from 'material-react-table';
-import { Card, IconButton, Tooltip, Chip } from '@mui/material';
+import { Box, Card, IconButton, Tooltip, Chip } from '@mui/material';
 import { createTheme, useColorScheme } from '@mui/material/styles';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import dayjs from 'dayjs';
@@ -137,9 +137,13 @@ function TableQueryLogs(): React.JSX.Element {
         size: 90,
         enableColumnActions: false,
         Cell: ({ cell }) => {
-          const pingTime = cell.getValue<number>();
-          if (pingTime < 0) {
-            return <span>N/A</span>;
+          const pingTime = cell.getValue<DomainList['ping_time']>();
+          if (typeof pingTime !== 'number' || !Number.isFinite(pingTime) || pingTime < 0) {
+            return (
+              <Tooltip title={t('No latency data available')} arrow placement="top">
+                <Box component="span" sx={{ color: 'text.disabled' }} tabIndex={0}>—</Box>
+              </Tooltip>
+            );
           }
           return <span>{pingTime} ms</span>;
         },

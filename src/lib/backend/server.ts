@@ -154,7 +154,7 @@ export interface DomainList {
     domain_type: number,
     is_blocked: boolean,
     is_cached?: boolean | null,
-    ping_time: false,
+    ping_time?: number | null,
     query_time: number,
     reply_code: number,
     timestamp: number,

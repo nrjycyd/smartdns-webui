@@ -27,6 +27,7 @@
     "Client": "客户端",
     "Time": "时间",
     "Ping": "Ping",
+    "No latency data available": "暂无测速数据",
     "Group": "组",
     "Default": "默认",
     "Show Default Value": "显示默认值",
