@@ -13,6 +13,7 @@ import { createTheme, useColorScheme } from '@mui/material/styles';
 import { type UpStreamServers, smartdnsServer } from '@/lib/backend/server';
 import { useUser } from '@/hooks/use-user';
 import { useTableDensityPreview } from '@/components/dashboard/layout/table-density-provider';
+import { useAdaptiveColumns } from '@/components/dashboard/layout/use-adaptive-columns';
 import { useTranslation } from 'react-i18next';
 import { MRT_Localization_EN } from 'material-react-table/locales/en';
 import { MRT_Localization_ZH_HANS } from 'material-react-table/locales/zh-Hans';
@@ -190,12 +191,24 @@ function TableUpstreamServers(): React.JSX.Element {
   );
   const baseBackgroundColor = tableTheme.palette.background.paper;
 
+  const widthText = React.useCallback((row: UpStreamServers, id: string) => {
+    if (id === 'query_success_rate') return `${row.query_success_rate} %`;
+    if (id === 'avg_time') return row.avg_time >= 0 ? `${row.avg_time} ms` : 'N/A';
+    return String(row[id as keyof UpStreamServers] ?? '');
+  }, []);
+  const widths = useAdaptiveColumns({ columns, data, visibility: columnVisibility, density, manualSizing: columnSizing, text: widthText });
+
   const table = useMaterialReactTable({
     onDensityChange: previewDensity,
     columns,
     data,
     localization: { ...tableLocales, toggleDensity: t('Preview table spacing (this page only)') },
-    enableColumnResizing: true,
+    enableColumnResizing: !widths.automatic,
+    layoutMode: 'grid-no-grow',
+    muiTableContainerProps: { ref: widths.containerRef },
+    muiTableBodyCellProps: ({ row, cell }) => ({ sx: widths.cellSx, title: widthText(row.original, cell.column.id) }),
+    muiCopyButtonProps: { sx: widths.copySx },
+    muiTableHeadCellProps: { sx: widths.headerSx },
     enableColumnOrdering: false,
     enableColumnActions: false,
     enableColumnFilters: false,
@@ -232,6 +245,7 @@ function TableUpstreamServers(): React.JSX.Element {
         });
     },
     onColumnSizingChange: (updaterOrValue) => {
+      if (widths.automatic) return;
       setColumnSizing((prev) => {
           const newSizing =
             typeof updaterOrValue === 'function'
@@ -251,8 +265,8 @@ function TableUpstreamServers(): React.JSX.Element {
       showAlertBanner: isError,
       showProgressBars: isLoading,
       showSkeletons: isLoading,
-      columnVisibility,
-      columnSizing,
+      columnVisibility: widths.columnVisibility,
+      columnSizing: widths.columnSizing,
     },
     mrtTheme: (_theme) => ({
       baseBackgroundColor,

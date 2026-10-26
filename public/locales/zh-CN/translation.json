@@ -206,5 +206,12 @@
     "A valid MAC address is required to set a custom hostname.": "此客户端没有有效的 MAC 地址，暂时无法设置自定义主机名。",
     "Could not read or save custom hostnames. Check browser storage permissions and stored data.": "无法读取或保存自定义主机名，请检查浏览器存储权限和已存数据。",
     "Use up to 64 characters without line breaks or control characters.": "最多 64 个字符，支持中文和空格，不支持换行或控制字符。",
-    "Restore server hostname": "恢复原始主机名"
+    "Restore server hostname": "恢复原始主机名",
+    "Column widths": "列宽设置",
+    "Auto fit": "自动适应",
+    "Manual widths": "手动调整",
+    "Automatically size visible columns using the available space and current page content across Query Log, Clients, and Upstream Servers.": "统一调整查询日志、客户端和上游服务器的列宽，根据可用空间、可见列和当前页内容自动分配。",
+    "Auto fit follows window size and visible columns. Narrow screens keep horizontal scrolling. Switch to manual to restore your saved widths and drag column edges.": "默认自动适应，随窗口大小和显示列变化重新分配；空间不足时保留横向滚动。切换为手动调整可恢复原来保存的列宽，并拖动列边缘微调。选择会在当前浏览器保存。",
+    "Could not read or save column width settings. Check browser storage permissions.": "无法读取或保存列宽设置，请检查浏览器存储权限。",
+    "Cells stay on one line. Auto fit temporarily hides Reply Code when space is tight and restores it when space returns. Your saved column visibility stays unchanged.": "单元格保持单行，优先完整展示常用内容。空间不足时自动临时隐藏“回应码”，空间恢复后重新显示；手动隐藏的列保持隐藏，不改写已保存的显示列配置。"
 }

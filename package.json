@@ -16,6 +16,7 @@
     "test:pwa": "node --test tests/pwa.test.mjs",
     "test:groups": "node --test tests/group-appearance.test.mjs",
     "test:clients": "node --test tests/client-names.test.mjs",
+    "test:columns": "node --test tests/column-widths.test.mjs",
     "format:write": "prettier --write \"**/*.{js,jsx,mjs,ts,tsx,mdx}\" --cache",
     "format:check": "prettier --check \"**/*.{js,jsx,mjs,ts,tsx,mdx}\" --cache"
   },

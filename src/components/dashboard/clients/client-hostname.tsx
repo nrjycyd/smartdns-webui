@@ -11,5 +11,5 @@ export function ClientHostname({ client }: { client: ClientList }): React.JSX.El
   const { names } = useClientNames();
   const { t } = useTranslation();
   const custom = getClientName(names, client.mac);
-  return <Tooltip title={custom ? t('Server hostname: {{name}}', { name: client.hostname || '—' }) : ''}><span>{custom || client.hostname || '—'}</span></Tooltip>;
+  return <Tooltip title={custom ? `${custom} · ${t('Server hostname: {{name}}', { name: client.hostname || '—' })}` : client.hostname || ''}><span>{custom || client.hostname || '—'}</span></Tooltip>;
 }

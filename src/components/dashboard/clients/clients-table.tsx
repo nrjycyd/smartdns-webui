@@ -36,6 +36,9 @@ import { Delete, Domain, EditOutlined } from '@mui/icons-material';
 import { type SnackbarOrigin, SnackbarProvider, useSnackbar } from 'notistack';
 import { ClientHostname } from './client-hostname';
 import { ClientNameDialog } from './client-name-dialog';
+import { getClientName } from './client-names';
+import { useClientNames } from './client-names-provider';
+import { useAdaptiveColumns } from '@/components/dashboard/layout/use-adaptive-columns';
 
 
 interface UserApiResponse {
@@ -52,6 +55,7 @@ interface PageCursor {
 }
 
 function TableClients(): React.JSX.Element {
+  const { names: clientNames } = useClientNames();
   const [editingClient, setEditingClient] = useState<ClientList | null>(null);
   const [density, previewDensity] = useTableDensityPreview();
   const { t } = useTranslation();
@@ -365,12 +369,24 @@ function TableClients(): React.JSX.Element {
   );
   const baseBackgroundColor = tableTheme.palette.background.paper;
 
+  const widthText = React.useCallback((row: ClientList, id: string) => {
+    if (id === 'hostname') return getClientName(clientNames, row.mac) || row.hostname || '—';
+    if (id === 'last_query_timestamp') return new Date(row.last_query_timestamp).toLocaleString();
+    return String(row[id as keyof ClientList] ?? '');
+  }, [clientNames]);
+  const widths = useAdaptiveColumns({ columns, data, visibility: columnVisibility, density, manualSizing: columnSizing, text: widthText, actions: true });
+
   const table = useMaterialReactTable({
     onDensityChange: previewDensity,
     columns,
     data,
     localization: { ...tableLocales, toggleDensity: t('Preview table spacing (this page only)') },
-    enableColumnResizing: true,
+    enableColumnResizing: !widths.automatic,
+    layoutMode: 'grid-no-grow',
+    muiTableContainerProps: { ref: widths.containerRef },
+    muiTableBodyCellProps: ({ row, cell }) => ({ sx: widths.cellSx, title: widthText(row.original, cell.column.id) }),
+    muiCopyButtonProps: { sx: widths.copySx },
+    muiTableHeadCellProps: { sx: widths.headerSx },
     enableSorting: false,
     enableColumnOrdering: true,
     enableRowActions: true,
@@ -424,6 +440,7 @@ function TableClients(): React.JSX.Element {
         });
     },
     onColumnSizingChange: (updaterOrValue) => {
+      if (widths.automatic) return;
       setColumnSizing((prev) => {
           const newSizing =
             typeof updaterOrValue === 'function'
@@ -480,8 +497,8 @@ function TableClients(): React.JSX.Element {
       globalFilter,
       isLoading,
       pagination,
-      columnVisibility,
-      columnSizing,
+      columnVisibility: widths.columnVisibility,
+      columnSizing: widths.columnSizing,
       showAlertBanner: isError,
       showProgressBars: isRefetching,
       showSkeletons: isLoading,

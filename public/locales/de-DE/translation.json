@@ -193,5 +193,12 @@
   "A valid MAC address is required to set a custom hostname.": "Für diesen Client ist keine gültige MAC-Adresse verfügbar. Ein benutzerdefinierter Hostname kann nicht festgelegt werden.",
   "Could not read or save custom hostnames. Check browser storage permissions and stored data.": "Benutzerdefinierte Hostnamen konnten nicht gelesen oder gespeichert werden. Prüfen Sie die Speicherberechtigungen und gespeicherten Daten.",
   "Use up to 64 characters without line breaks or control characters.": "Bis zu 64 Zeichen ohne Zeilenumbrüche oder Steuerzeichen.",
-  "Restore server hostname": "Ursprünglichen Hostnamen wiederherstellen"
+  "Restore server hostname": "Ursprünglichen Hostnamen wiederherstellen",
+  "Column widths": "Spaltenbreiten",
+  "Auto fit": "Automatisch",
+  "Manual widths": "Manuell",
+  "Automatically size visible columns using the available space and current page content across Query Log, Clients, and Upstream Servers.": "Sichtbare Spalten für Abfrageprotokoll, Clients und Upstream-Server anhand des verfügbaren Platzes und des aktuellen Seiteninhalts anpassen.",
+  "Auto fit follows window size and visible columns. Narrow screens keep horizontal scrolling. Switch to manual to restore your saved widths and drag column edges.": "Standardmäßig passen sich die Breiten an Fenster und sichtbare Spalten an. Bei Platzmangel bleibt horizontales Scrollen möglich. Manuell stellt Ihre gespeicherten Breiten wieder her. Die Auswahl wird in diesem Browser gespeichert.",
+  "Could not read or save column width settings. Check browser storage permissions.": "Die Spalteneinstellungen konnten nicht gelesen oder gespeichert werden. Prüfen Sie die Speicherberechtigungen des Browsers.",
+  "Cells stay on one line. Auto fit temporarily hides Reply Code when space is tight and restores it when space returns. Your saved column visibility stays unchanged.": "Zellen bleiben einzeilig. Bei Platzmangel wird der Antwortcode vorübergehend ausgeblendet und bei mehr Platz wieder angezeigt. Gespeicherte Einstellungen für sichtbare Spalten bleiben erhalten."
 }

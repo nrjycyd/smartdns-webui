@@ -37,6 +37,8 @@ import { type SnackbarOrigin, SnackbarProvider, useSnackbar } from 'notistack';
 import { getDomainTypeName, getDomainTypeId } from './domain-type';
 import { GroupLabel, useGroupAppearance } from './group-label';
 import { useTableDensityPreview } from '@/components/dashboard/layout/table-density-provider';
+import { useAdaptiveColumns } from '@/components/dashboard/layout/use-adaptive-columns';
+import { singleLineCellSx } from '@/components/dashboard/layout/column-widths';
 
 
 interface UserApiResponse {
@@ -74,12 +76,7 @@ function TableQueryLogs(): React.JSX.Element {
         enableColumnActions: false,
         columnFilterModeOptions: ['contains', 'equals'],
         muiTableBodyCellProps: {
-          sx: {
-            maxWidth: '360px',
-            whiteSpace: 'nowrap',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-          },
+          sx: singleLineCellSx,
         },
         Cell: ({ cell, renderedCellValue }) => (
           <Tooltip title={cell.getValue<string>()} arrow placement="top">
@@ -109,12 +106,7 @@ function TableQueryLogs(): React.JSX.Element {
         enableColumnActions: false,
         columnFilterModeOptions: ['equals'],
         muiTableBodyCellProps: {
-          sx: {
-            maxWidth: '330px',
-            whiteSpace: 'nowrap',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-          },
+          sx: singleLineCellSx,
         },
         Cell: ({ cell, renderedCellValue }) => (
           <Tooltip title={cell.getValue<string>()} arrow placement="top">
@@ -579,12 +571,29 @@ function TableQueryLogs(): React.JSX.Element {
   const [columnVisibility, setColumnVisibility] = React.useState(initialColumnVisibility);
   const [columnSizing, setColumnSizing] = React.useState(jsonParsedColumnSizing);
 
+  const widthText = React.useCallback((row: DomainList, id: string) => {
+    if (id === 'timestamp') return new Date(row.timestamp).toLocaleString();
+    if (id === 'domain_type') return getDomainTypeName(row.domain_type);
+    if (id === 'domain_group') return row.domain_group || t('Default');
+    if (id === 'is_blocked') return t(row.is_blocked ? 'Blocked' : 'Allowed');
+    if (id === 'is_cached') return t(row.is_cached === true ? 'Yes' : row.is_cached === false ? 'No' : 'Unknown');
+    if (id === 'ping_time') return typeof row.ping_time === 'number' && row.ping_time >= 0 ? `${row.ping_time} ms` : '—';
+    if (id === 'query_time') return `${row.query_time} ms`;
+    return String(row[id as keyof DomainList] ?? '');
+  }, [t]);
+  const widths = useAdaptiveColumns({ columns, data, visibility: columnVisibility, density, manualSizing: columnSizing, text: widthText, actions: true, optionalColumn: 'reply_code' });
+
   const table = useMaterialReactTable({
     onDensityChange: previewDensity,
     columns,
     data,
     localization: { ...tableLocales, toggleDensity: t('Preview table spacing (this page only)') },
-    enableColumnResizing: true,
+    enableColumnResizing: !widths.automatic,
+    layoutMode: 'grid-no-grow',
+    muiTableContainerProps: { ref: widths.containerRef },
+    muiTableBodyCellProps: ({ row, cell }) => ({ sx: widths.cellSx, title: widthText(row.original, cell.column.id) }),
+    muiCopyButtonProps: { sx: widths.copySx },
+    muiTableHeadCellProps: { sx: widths.headerSx },
     enableSorting: false,
     enableColumnOrdering: true,
     enableRowActions: true,
@@ -640,6 +649,7 @@ function TableQueryLogs(): React.JSX.Element {
         });
     },
     onColumnSizingChange: (updaterOrValue) => {
+      if (widths.automatic) return;
       setColumnSizing((prev) => {
           const newSizing =
             typeof updaterOrValue === 'function'
@@ -703,8 +713,8 @@ function TableQueryLogs(): React.JSX.Element {
       globalFilter,
       isLoading,
       pagination,
-      columnVisibility,
-      columnSizing,
+      columnVisibility: widths.columnVisibility,
+      columnSizing: widths.columnSizing,
       showAlertBanner: isError,
       showProgressBars: isRefetching,
       showSkeletons: isLoading,

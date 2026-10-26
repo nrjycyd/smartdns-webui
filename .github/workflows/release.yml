@@ -46,6 +46,9 @@ jobs:
       - name: Test client names
         run: npm run test:clients
 
+      - name: Test column widths
+        run: npm run test:columns
+
       - name: Build
         run: npm run build
 
