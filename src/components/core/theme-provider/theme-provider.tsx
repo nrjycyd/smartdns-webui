@@ -21,7 +21,7 @@ function BrowserThemeColor(): React.JSX.Element {
 }
 
 export function ThemeProvider({ children }: ThemeProviderProps): React.JSX.Element {
-  const theme = createTheme();
+  const theme = React.useMemo(() => createTheme(), []);
 
   return (
     <MuiThemeProvider
@@ -29,6 +29,7 @@ export function ThemeProvider({ children }: ThemeProviderProps): React.JSX.Eleme
       defaultMode="system"
       modeStorageKey="user-color-scheme"
       colorSchemeStorageKey="smartdns-color-scheme"
+      disableTransitionOnChange
     >
       <BrowserThemeColor />
       <CssBaseline />
