@@ -187,6 +187,24 @@ function TableQueryLogs(): React.JSX.Element {
         enableColumnActions: false,
       },
       {
+        accessorKey: 'is_cached',
+        header: t('Cache Hit'),
+        size: 150,
+        enableColumnFilter: false,
+        enableColumnFilterModes: false,
+        enableColumnActions: false,
+        Cell: ({ cell }) => {
+          const isCached = cell.getValue<DomainList['is_cached']>();
+          if (isCached === true) {
+            return <Chip label={t('Yes')} color="success" size="small" />;
+          }
+          if (isCached === false) {
+            return <Chip label={t('No')} size="small" variant="outlined" />;
+          }
+          return <Chip label={t('Unknown')} size="small" variant="outlined" />;
+        },
+      },
+      {
         accessorKey: 'query_time',
         header: t('Query Time'),
         Cell: ({ cell }) => {

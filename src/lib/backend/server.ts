@@ -153,6 +153,7 @@ export interface DomainList {
     domain_group: string,
     domain_type: number,
     is_blocked: boolean,
+    is_cached?: boolean | null,
     ping_time: false,
     query_time: number,
     reply_code: number,
