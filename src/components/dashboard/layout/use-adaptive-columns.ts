@@ -22,7 +22,7 @@ function outerWidth(node: Element): number {
   return Math.max(node.getBoundingClientRect().width, node.scrollWidth) + (Number.parseFloat(style.marginLeft) || 0) + (Number.parseFloat(style.marginRight) || 0);
 }
 
-export function useAdaptiveColumns<T extends object>({ layout: pageLayout, columns, data, visibility, density, manualSizing, text, actions = false, optionalColumn, filtering = true, sorting = false, columnActions = true }: {
+export function useAdaptiveColumns<T extends object>({ layout: pageLayout, columns, data, visibility, density, manualSizing, text, referenceText, actions = false, optionalColumn, filtering = true, sorting = false, columnActions = true }: {
   layout: TableColumnLayout;
   columns: readonly Column[];
   data: readonly T[];
@@ -30,6 +30,7 @@ export function useAdaptiveColumns<T extends object>({ layout: pageLayout, colum
   density: TableDensity;
   manualSizing: Record<string, number>;
   text?: (row: T, id: string) => string;
+  referenceText?: Readonly<Record<string, readonly string[]>>;
   actions?: boolean;
   optionalColumn?: string;
   filtering?: boolean;
@@ -56,13 +57,13 @@ export function useAdaptiveColumns<T extends object>({ layout: pageLayout, colum
     const targets = columns.flatMap((column) => {
       const id = column.id ?? column.accessorKey;
       if (!id || visibility[id] === false) return [];
-      const samples = data.slice(0, 80).map((row) => text ? text(row, id) : String(row[id as keyof T] ?? ''));
+      const samples = referenceText?.[id] ?? data.slice(0, 80).map((row) => text ? text(row, id) : String(row[id as keyof T] ?? ''));
       let content = measureColumnContent(id, samples, measure, pageLayout !== 'query-log');
       if (id === 'domain_type') content = Math.max(content, measure('AAAA'), measure('HTTPS'));
       if (id === 'ping_time') content = Math.max(content, measure('999.9 ms'));
       let floor = Math.max(80, Math.min(300, Math.ceil(content + contentAllowance)));
       switch (id) {
-        case 'domain': { floor = Math.max(180, Math.min(360, Math.ceil(content + padding + 8))); break;
+        case 'domain': { floor = pageLayout === 'query-log' ? 180 : Math.max(180, Math.min(360, Math.ceil(content + padding + 8))); break;
         }
         case 'host':
         case 'hostname': { floor = Math.max(160, Math.min(pageLayout === 'upstream-servers' ? 280 : 320, Math.ceil(content + contentAllowance))); break;
@@ -80,7 +81,7 @@ export function useAdaptiveColumns<T extends object>({ layout: pageLayout, colum
       }
       const controls = (filtering && column.enableColumnFilter !== false ? 20 : 0) + (sorting && column.enableSorting !== false ? 20 : 0) + (columnActions && column.enableColumnActions !== false ? 24 : 0);
       const min = Math.ceil(Math.max(column.minSize ?? 0, floor, measurement.headers[column.header] ?? (measure(column.header, true) + padding + controls)));
-      return [createColumnWidthTarget(pageLayout, id, min, content + contentAllowance + 16, column.maxSize)];
+      return [createColumnWidthTarget(pageLayout, id, min, pageLayout === 'query-log' && id === 'domain' ? 360 : content + contentAllowance + 16, column.maxSize)];
     });
     const actionWidth = density === 'compact' ? 72 : 90;
     if (actions && visibility['mrt-row-actions'] !== false) targets.push({ id: 'mrt-row-actions', min: actionWidth, max: actionWidth, preferred: actionWidth, weight: 0 });
@@ -90,7 +91,7 @@ export function useAdaptiveColumns<T extends object>({ layout: pageLayout, colum
       columnSizing: fitColumnWidths(hiddenColumn ? targets.filter((column) => column.id !== hiddenColumn) : targets, measurement.width),
       columnVisibility: hiddenColumn ? { ...visibility, [hiddenColumn]: false } : visibility,
     };
-  }, [automatic, pageLayout, columns, data, visibility, density, manualSizing, measurement, text, actions, optionalColumn, filtering, sorting, columnActions]);
+  }, [automatic, pageLayout, columns, data, visibility, density, manualSizing, measurement, text, referenceText, actions, optionalColumn, filtering, sorting, columnActions]);
 
   React.useLayoutEffect(() => {
     const element = containerRef.current;
@@ -123,8 +124,10 @@ export function useAdaptiveColumns<T extends object>({ layout: pageLayout, colum
         // Clipped or temporarily hidden controls must not shrink a measured header.
         const nextHeaders = previous.headerDensity === density && previous.rem === rem ? { ...previous.headers } : {};
         for (const [title, width] of Object.entries(headers)) nextHeaders[title] = Math.max(nextHeaders[title] ?? 0, width);
-        if (previous.width === width && previous.font === font && previous.weight === weight && previous.spacing === spacing && previous.rem === rem && previous.copyPadding === copyPadding && previous.headerDensity === density && JSON.stringify(previous.headers) === JSON.stringify(nextHeaders)) return previous;
-        return { ...previous, width, font, weight, spacing, rem, copyPadding, headerDensity: density, headers: nextHeaders };
+        // An empty/loading body must not temporarily replace body metrics with header typography.
+        const body = data.length > 0 ? { font, weight, spacing, copyPadding } : { font: previous.font, weight: previous.weight, spacing: previous.spacing, copyPadding: previous.copyPadding };
+        if (previous.width === width && previous.font === body.font && previous.weight === body.weight && previous.spacing === body.spacing && previous.rem === rem && previous.copyPadding === body.copyPadding && previous.headerDensity === density && JSON.stringify(previous.headers) === JSON.stringify(nextHeaders)) return previous;
+        return { ...previous, width, ...body, rem, headerDensity: density, headers: nextHeaders };
       });
     };
     const schedule = () => { cancelAnimationFrame(frame); frame = requestAnimationFrame(measure); };

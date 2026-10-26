@@ -581,7 +581,20 @@ function TableQueryLogs(): React.JSX.Element {
     if (id === 'query_time') return `${row.query_time} ms`;
     return String(row[id as keyof DomainList] ?? '');
   }, [t]);
-  const widths = useAdaptiveColumns({ layout: 'query-log', columns, data, visibility: columnVisibility, density, manualSizing: columnSizing, text: widthText, actions: true, optionalColumn: 'reply_code' });
+  const widthReferences = React.useMemo(() => ({
+    id: ['99999999'],
+    domain: [],
+    domain_type: ['AAAA', 'HTTPS'],
+    client: ['255.255.255.255'],
+    timestamp: [new Date(8888, 10, 28, 11, 59, 59).toLocaleString(), new Date(8888, 10, 28, 23, 59, 59).toLocaleString()],
+    ping_time: ['999.9 ms'],
+    domain_group: ['DIRECT', 'PROXY', 'REJECT', t('Default')],
+    is_blocked: [t('Blocked'), t('Allowed')],
+    is_cached: [t('Yes'), t('No'), t('Unknown')],
+    query_time: ['9999.9 ms'],
+    reply_code: ['4095'],
+  }), [t]);
+  const widths = useAdaptiveColumns({ layout: 'query-log', columns, data, visibility: columnVisibility, density, manualSizing: columnSizing, text: widthText, referenceText: widthReferences, actions: true, optionalColumn: 'reply_code' });
 
   const table = useMaterialReactTable({
     onDensityChange: previewDensity,
