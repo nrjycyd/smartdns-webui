@@ -39,7 +39,7 @@ import { formatQueryClientAddress, QUERY_CLIENT_ADDRESS_WIDTH_SAMPLES } from './
 import { GroupLabel, useGroupAppearance } from './group-label';
 import { useTableDensityPreview } from '@/components/dashboard/layout/table-density-provider';
 import { useAdaptiveColumns } from '@/components/dashboard/layout/use-adaptive-columns';
-import { singleLineCellSx } from '@/components/dashboard/layout/column-widths';
+import { singleLineCellSx, singleLineCopySx, singleLineHeaderSx } from '@/components/dashboard/layout/column-widths';
 
 
 interface UserApiResponse {
@@ -106,9 +106,13 @@ function TableQueryLogs(): React.JSX.Element {
         size: 330,
         enableColumnActions: false,
         columnFilterModeOptions: ['equals'],
-        muiTableBodyCellProps: {
-          sx: singleLineCellSx,
-        },
+        muiTableBodyCellProps: ({ table }) => ({
+          sx: { ...singleLineCellSx, px: table.getState().density === 'compact' ? '0.25rem' : table.getState().density === 'comfortable' ? '0.5rem' : '0.75rem' },
+        }),
+        muiTableHeadCellProps: ({ table }) => ({
+          sx: { ...singleLineHeaderSx, px: table.getState().density === 'compact' ? '0.25rem' : table.getState().density === 'comfortable' ? '0.5rem' : '0.75rem' },
+        }),
+        muiCopyButtonProps: { sx: { ...singleLineCopySx, paddingLeft: 0, paddingRight: 0, marginLeft: 0, marginRight: 0 } },
         Cell: ({ cell }) => (
           <Tooltip title={cell.getValue<string>()} arrow placement="top">
             <span>{formatQueryClientAddress(cell.getValue<string>())}</span>

@@ -78,7 +78,9 @@ export function useAdaptiveColumns<T extends object>({ layout: pageLayout, colum
           if (/timestamp/.test(id)) floor = Math.max(170, Math.ceil(content + contentAllowance));
           else if (/^ip$|^client$|_ip$/.test(id)) {
             const limit = pageLayout === 'query-log' && referenceText?.[id] ? Number.POSITIVE_INFINITY : pageLayout === 'query-log' ? 220 : pageLayout === 'clients' ? 440 : 320;
-            floor = Math.max(140, Math.min(limit, Math.ceil(content + contentAllowance)));
+            const compactClient = pageLayout === 'query-log' && id === 'client';
+            const allowance = compactClient ? padding / 2 + 4 : contentAllowance;
+            floor = Math.max(compactClient ? 80 : 140, Math.min(limit, Math.ceil(content + allowance)));
           }
         }
       }
