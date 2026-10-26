@@ -11,12 +11,10 @@ export const COPY_BUTTON_INLINE_PADDING = 4;
 export type TableColumnLayout = 'query-log' | 'upstream-servers' | 'clients';
 
 export function createColumnWidthTarget(layout: TableColumnLayout, id: string, min: number, preferred: number, max?: number): ColumnWidthTarget {
-  const address = /^ip$|^client$|_ip$/.test(id);
   let limit = min;
   let weight = 0;
   if (layout === 'query-log') {
-    if (address) { limit = 220; weight = 1; }
-    else if (id === 'domain') { limit = 560; weight = 3; }
+    if (id === 'domain') { limit = 560; weight = 3; }
   } else if (layout === 'clients') {
     switch (id) {
       case 'client_ip': { limit = 520; weight = 3; break; }

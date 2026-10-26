@@ -80,7 +80,7 @@ test('IPv4 values and colon-containing non-IP content still participate in sizin
 
 test('extra space goes to long fields while short fields keep their content widths', () => {
   const compact = [
-    ['id', 84], ['domain_type', 80], ['timestamp', 190], ['ping_time', 100],
+    ['id', 84], ['client', 140], ['domain_type', 80], ['timestamp', 190], ['ping_time', 100],
     ['domain_group', 130], ['is_blocked', 90], ['is_cached', 72], ['query_time', 92],
     ['reply_code', 80], ['port', 80], ['server_type', 80], ['security', 90],
     ['status', 80], ['query_success_rate', 110], ['avg_time', 100],
@@ -94,11 +94,11 @@ test('extra space goes to long fields while short fields keep their content widt
   }
 });
 
-test('address widths are bounded and spare space favors host names and domains', () => {
+test('query client width stays compact while spare space favors the domain', () => {
   const targets = [createColumnWidthTarget('query-log', 'domain', 180, 200), createColumnWidthTarget('query-log', 'client', 140, 140)];
   const fitted = fitColumnWidths(targets, 500);
   assert(fitted.domain - 200 > fitted.client - 140);
-  assert.deepEqual(fitColumnWidths(targets, 1000), { domain: 560, client: 220 });
+  assert.deepEqual(fitColumnWidths(targets, 1000), { domain: 560, client: 140 });
   assert.equal(fitColumnWidths([createColumnWidthTarget('clients', 'hostname', 160, 200, 350)], 800).hostname, 350);
 });
 
