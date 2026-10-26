@@ -1,4 +1,7 @@
 {
+  "Client details copied": "Clientdetails kopiert",
+  "Failed to copy client details": "Clientdetails konnten nicht kopiert werden",
+  "Filter by full client IP": "Nach vollständiger Client-IP filtern",
   "Username": "Benutzername",
   "Password": "Passwort",
   "Sign in": "Anmelden",

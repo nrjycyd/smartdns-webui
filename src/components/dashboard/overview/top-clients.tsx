@@ -12,9 +12,7 @@ import { CardLoading } from './card-loading';
 import { paths } from '@/paths';
 import { Link, Tooltip, Typography } from '@mui/material';
 import { useTranslation } from 'react-i18next';
-import { useQuery } from '@tanstack/react-query';
-import { getClientName } from '@/components/dashboard/clients/client-names';
-import { useClientNames } from '@/components/dashboard/clients/client-names-provider';
+import { useClientIdentity } from '@/components/dashboard/clients/client-identity-provider';
 import { RankingTable } from './ranking-table';
 
 export interface TopClientsProps {
@@ -23,21 +21,9 @@ export interface TopClientsProps {
 }
 
 function TopClientLink({ ip, href }: { ip: string; href: string }): React.JSX.Element {
-  const { names } = useClientNames();
-  const { data: client } = useQuery({
-    queryKey: ['client-name-lookup', ip],
-    enabled: Object.keys(names).length > 0,
-    staleTime: 60_000,
-    retry: false,
-    queryFn: async () => {
-      const result = await smartdnsServer.GetClients({ client_ip: ip, page_num: 1, page_size: 1 });
-      if (result.error) throw new Error('Client lookup failed');
-      return result.data?.client_list.find((entry) => entry.client_ip === ip) ?? null;
-    },
-  });
-  const custom = getClientName(names, client?.mac);
+  const { name: custom, tooltip } = useClientIdentity(ip);
   return (
-    <Tooltip title={custom ? `${custom} · ${ip}` : ip}>
+    <Tooltip title={tooltip}>
       <Link href={href} sx={{ display: 'flex', alignItems: 'baseline', gap: 1, minWidth: 0, whiteSpace: 'nowrap' }}>
         <Box component="span" sx={{ minWidth: 0, maxWidth: custom ? '55%' : '100%', overflow: 'hidden', textOverflow: 'ellipsis' }}>{custom || ip}</Box>
         {custom && <Typography component="span" variant="caption" color="text.secondary" sx={{ flex: '1 1 0', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis' }}>{ip}</Typography>}

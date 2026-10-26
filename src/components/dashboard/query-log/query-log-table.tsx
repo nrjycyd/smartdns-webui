@@ -35,11 +35,13 @@ import i18n from '@/components/core/i18n';
 import { Delete, Domain } from '@mui/icons-material';
 import { type SnackbarOrigin, SnackbarProvider, useSnackbar } from 'notistack';
 import { getDomainTypeName, getDomainTypeId } from './domain-type';
-import { formatQueryClientAddress, QUERY_CLIENT_ADDRESS_WIDTH_SAMPLES } from './client-address';
+import { QueryClientIdentityCell } from './client-identity-cell';
+import { useRefreshClientIdentities } from '@/components/dashboard/clients/client-identity-provider';
+import { QUERY_CLIENT_ADDRESS_WIDTH_SAMPLES } from './client-address';
 import { GroupLabel, useGroupAppearance } from './group-label';
 import { useTableDensityPreview } from '@/components/dashboard/layout/table-density-provider';
 import { useAdaptiveColumns } from '@/components/dashboard/layout/use-adaptive-columns';
-import { singleLineCellSx, singleLineCopySx, singleLineHeaderSx } from '@/components/dashboard/layout/column-widths';
+import { singleLineCellSx, singleLineHeaderSx } from '@/components/dashboard/layout/column-widths';
 
 
 interface UserApiResponse {
@@ -60,6 +62,7 @@ function TableQueryLogs(): React.JSX.Element {
   const [density, previewDensity] = useTableDensityPreview();
   const { t } = useTranslation();
   const { refresh: refreshGroupAppearance, registerGroups } = useGroupAppearance();
+  const refreshClientIdentities = useRefreshClientIdentities();
 
   const columns = useMemo<MRTColumnDef<DomainList>[]>(
     () => [
@@ -105,19 +108,17 @@ function TableQueryLogs(): React.JSX.Element {
         header: t('Client'),
         size: 330,
         enableColumnActions: false,
+        enableClickToCopy: false,
+        muiFilterTextFieldProps: { placeholder: t('Filter by full client IP') },
         columnFilterModeOptions: ['equals'],
         muiTableBodyCellProps: ({ table }) => ({
+          title: '',
           sx: { ...singleLineCellSx, px: table.getState().density === 'compact' ? '0.25rem' : table.getState().density === 'comfortable' ? '0.5rem' : '0.75rem' },
         }),
         muiTableHeadCellProps: ({ table }) => ({
           sx: { ...singleLineHeaderSx, px: table.getState().density === 'compact' ? '0.25rem' : table.getState().density === 'comfortable' ? '0.5rem' : '0.75rem' },
         }),
-        muiCopyButtonProps: { sx: { ...singleLineCopySx, paddingLeft: 0, paddingRight: 0, marginLeft: 0, marginRight: 0 } },
-        Cell: ({ cell }) => (
-          <Tooltip title={cell.getValue<string>()} arrow placement="top">
-            <span>{formatQueryClientAddress(cell.getValue<string>())}</span>
-          </Tooltip>
-        ),
+        Cell: ({ cell }) => <QueryClientIdentityCell ip={cell.getValue<string>()} />,
       },
       {
         accessorKey: 'timestamp',
@@ -686,6 +687,7 @@ function TableQueryLogs(): React.JSX.Element {
             onClick={() => {
               pageCursor.current = null;
               refreshGroupAppearance();
+              refreshClientIdentities();
               refetch().catch((_error: unknown) => {
                 // NOOP
               });
