@@ -36,6 +36,7 @@ import { Delete, Domain } from '@mui/icons-material';
 import { type SnackbarOrigin, SnackbarProvider, useSnackbar } from 'notistack';
 import { getDomainTypeName, getDomainTypeId } from './domain-type';
 import { GroupLabel, useGroupAppearance } from './group-label';
+import { useTableDensityPreview } from '@/components/dashboard/layout/table-density-provider';
 
 
 interface UserApiResponse {
@@ -53,6 +54,7 @@ interface PageCursor {
 
 
 function TableQueryLogs(): React.JSX.Element {
+  const [density, previewDensity] = useTableDensityPreview();
   const { t } = useTranslation();
   const { refresh: refreshGroupAppearance, registerGroups } = useGroupAppearance();
 
@@ -578,9 +580,10 @@ function TableQueryLogs(): React.JSX.Element {
   const [columnSizing, setColumnSizing] = React.useState(jsonParsedColumnSizing);
 
   const table = useMaterialReactTable({
+    onDensityChange: previewDensity,
     columns,
     data,
-    localization: tableLocales,
+    localization: { ...tableLocales, toggleDensity: t('Preview table spacing (this page only)') },
     enableColumnResizing: true,
     enableSorting: false,
     enableColumnOrdering: true,
@@ -694,6 +697,7 @@ function TableQueryLogs(): React.JSX.Element {
       },
     },
     state: {
+      density,
       columnFilters,
       columnFilterFns,
       globalFilter,

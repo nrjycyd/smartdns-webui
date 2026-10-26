@@ -27,6 +27,7 @@ import {
 
 import { type ClientList, type QueryClientsParams, smartdnsServer } from '@/lib/backend/server';
 import { useUser } from '@/hooks/use-user';
+import { useTableDensityPreview } from '@/components/dashboard/layout/table-density-provider';
 import { useTranslation } from 'react-i18next';
 import { MRT_Localization_EN } from 'material-react-table/locales/en';
 import { MRT_Localization_ZH_HANS } from 'material-react-table/locales/zh-Hans';
@@ -49,6 +50,7 @@ interface PageCursor {
 }
 
 function TableClients(): React.JSX.Element {
+  const [density, previewDensity] = useTableDensityPreview();
   const { t } = useTranslation();
 
   const COLUMN_VISIBILITY_KEY = 'clients-table-column-visibility';
@@ -352,9 +354,10 @@ function TableClients(): React.JSX.Element {
   const baseBackgroundColor = tableTheme.palette.background.paper;
 
   const table = useMaterialReactTable({
+    onDensityChange: previewDensity,
     columns,
     data,
-    localization: tableLocales,
+    localization: { ...tableLocales, toggleDensity: t('Preview table spacing (this page only)') },
     enableColumnResizing: true,
     enableSorting: false,
     enableColumnOrdering: true,
@@ -459,6 +462,7 @@ function TableClients(): React.JSX.Element {
       },
     },
     state: {
+      density,
       columnFilters,
       columnFilterFns,
       globalFilter,

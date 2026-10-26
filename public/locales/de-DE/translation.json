@@ -175,5 +175,15 @@
   "Reload file defaults": "Dateivorgaben neu laden",
   "Reset all custom settings": "Alle Anpassungen zurücksetzen",
   "Import custom settings": "Anpassungen importieren",
-  "Export custom settings": "Anpassungen exportieren"
+  "Export custom settings": "Anpassungen exportieren",
+  "Display settings": "Anzeigeeinstellungen",
+  "Table spacing": "Tabellenabstand",
+  "Compact": "Kompakt",
+  "Comfortable": "Standard",
+  "Spacious": "Großzügig",
+  "Adjust row height and cell spacing for Query Log, Clients, and Upstream Servers.": "Zeilenhöhe und Zellabstand für Abfrageprotokoll, Clients und Upstream-Server gemeinsam einstellen.",
+  "Changes take effect immediately and are remembered in this browser for this address. Rows per page are unchanged.": "Änderungen gelten sofort und bleiben in diesem Browser für diese Adresse gespeichert. Die Zeilenanzahl pro Seite bleibt unverändert.",
+  "Could not read or save table spacing. Check browser storage permissions. Unsaved changes are not applied.": "Der Tabellenabstand konnte nicht gelesen oder gespeichert werden. Prüfen Sie die Speicherberechtigungen des Browsers. Nicht gespeicherte Änderungen werden nicht angewendet.",
+  "Preview table spacing (this page only)": "Tabellenabstand vorübergehend anzeigen (nur diese Seite)",
+  "Use each table spacing button for a temporary preview. Leaving the page or refreshing restores the global setting.": "Mit der Abstandsschaltfläche jeder Tabelle können Sie eine vorübergehende Vorschau anzeigen. Beim Verlassen oder Neuladen der Seite gilt wieder die globale Einstellung."
 }

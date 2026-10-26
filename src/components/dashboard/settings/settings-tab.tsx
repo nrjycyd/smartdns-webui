@@ -7,6 +7,7 @@ import { UpdatePasswordForm } from '@/components/dashboard/settings/update-passw
 import { ChangeLang } from '@/components/dashboard/settings/change-lang';
 import { InstallApp } from '@/components/dashboard/settings/install-app';
 import { GroupAppearanceSettings } from '@/components/dashboard/settings/group-appearance-settings';
+import { DisplaySettings } from '@/components/dashboard/settings/display-settings';
 import { TabContext, TabList, TabPanel } from '@mui/lab';
 import { Box, Card, CardContent, Tab, Typography } from '@mui/material';
 import { useTranslation } from 'react-i18next';
@@ -27,6 +28,10 @@ const tabs = [
   {
     label: 'Group appearance',
     pannel: <GroupAppearanceSettings />,
+  },
+  {
+    label: 'Display settings',
+    pannel: <DisplaySettings />,
   }
 ];
 

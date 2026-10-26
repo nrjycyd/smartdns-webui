@@ -12,6 +12,7 @@ import RefreshIcon from '@mui/icons-material/Refresh';
 import { createTheme, useColorScheme } from '@mui/material/styles';
 import { type UpStreamServers, smartdnsServer } from '@/lib/backend/server';
 import { useUser } from '@/hooks/use-user';
+import { useTableDensityPreview } from '@/components/dashboard/layout/table-density-provider';
 import { useTranslation } from 'react-i18next';
 import { MRT_Localization_EN } from 'material-react-table/locales/en';
 import { MRT_Localization_ZH_HANS } from 'material-react-table/locales/zh-Hans';
@@ -19,6 +20,7 @@ import i18n from '@/components/core/i18n';
 import { type SnackbarOrigin, SnackbarProvider } from 'notistack';
 
 function TableUpstreamServers(): React.JSX.Element {
+  const [density, previewDensity] = useTableDensityPreview();
   const { t } = useTranslation();
   const [data, setData] = useState<UpStreamServers[]>([]);
   const [isError, setIsError] = useState(false);
@@ -189,9 +191,10 @@ function TableUpstreamServers(): React.JSX.Element {
   const baseBackgroundColor = tableTheme.palette.background.paper;
 
   const table = useMaterialReactTable({
+    onDensityChange: previewDensity,
     columns,
     data,
-    localization: tableLocales,
+    localization: { ...tableLocales, toggleDensity: t('Preview table spacing (this page only)') },
     enableColumnResizing: true,
     enableColumnOrdering: false,
     enableColumnActions: false,
@@ -244,6 +247,7 @@ function TableUpstreamServers(): React.JSX.Element {
       columnSizing,
     },
     state: {
+      density,
       showAlertBanner: isError,
       showProgressBars: isLoading,
       showSkeletons: isLoading,

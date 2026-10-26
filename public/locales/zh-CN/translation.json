@@ -188,5 +188,15 @@
     "Reload file defaults": "重新加载默认文件",
     "Reset all custom settings": "恢复全部默认",
     "Import custom settings": "导入自定义",
-    "Export custom settings": "导出自定义"
+    "Export custom settings": "导出自定义",
+    "Display settings": "显示设置",
+    "Table spacing": "表格间距",
+    "Compact": "紧凑",
+    "Comfortable": "标准",
+    "Spacious": "宽松",
+    "Adjust row height and cell spacing for Query Log, Clients, and Upstream Servers.": "统一调整查询日志、客户端和上游服务器表格的行高与单元格留白。",
+    "Changes take effect immediately and are remembered in this browser for this address. Rows per page are unchanged.": "选择立即生效，并保存在当前浏览器和访问地址；离开页面或刷新后仍保留，每页显示条数不变。",
+    "Could not read or save table spacing. Check browser storage permissions. Unsaved changes are not applied.": "无法读取或保存表格间距，请检查浏览器存储权限。未能保存的修改不会应用。",
+    "Preview table spacing (this page only)": "临时预览间距（仅当前页面）",
+    "Use each table spacing button for a temporary preview. Leaving the page or refreshing restores the global setting.": "各表格的间距按钮可临时预览，仅影响当前页面；离开页面或刷新后恢复全局设置。"
 }
