@@ -1,0 +1,19 @@
+{
+  "groups": {
+    "REJECT": {
+      "color": "light-dark(#c62828, #ef9a9a)",
+      "icon": "keyline-icons:shield-off-duotone",
+      "iconColor": ""
+    },
+    "PROXY": {
+      "color": "light-dark(#1565c0, #90caf9)",
+      "icon": "andrsrxn:globe-sparkle",
+      "iconColor": ""
+    },
+    "DIRECT": {
+      "color": "light-dark(#2e7d32, #81c784)",
+      "icon": "keyline-icons:circle-zap-sharp-duotone",
+      "iconColor": ""
+    }
+  }
+}

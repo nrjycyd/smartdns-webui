@@ -14,6 +14,7 @@
     "lint:fix": "eslint src --fix",
     "typecheck": "tsc --noEmit",
     "test:pwa": "node --test tests/pwa.test.mjs",
+    "test:groups": "node --test tests/group-appearance.test.mjs",
     "format:write": "prettier --write \"**/*.{js,jsx,mjs,ts,tsx,mdx}\" --cache",
     "format:check": "prettier --check \"**/*.{js,jsx,mjs,ts,tsx,mdx}\" --cache"
   },
@@ -25,6 +26,7 @@
     "@fontsource/plus-jakarta-sans": "^5.2.8",
     "@fontsource/roboto-mono": "^5.2.8",
     "@hookform/resolvers": "^5.2.2",
+    "@iconify/react": "^6.0.3",
     "@melloware/react-logviewer": "^6.3.4",
     "@mui/icons-material": "7.3.6",
     "@mui/lab": "7.0.1-beta.20",

@@ -36,11 +36,17 @@ if [ -d /opt/smartdns-webui ]; then
 fi
 
 install -d -m 755 /opt/smartdns-webui
+if [ -f /opt/smartdns-webui/group-colors.json ]; then
+  cp -p /opt/smartdns-webui/group-colors.json "$WORKDIR/group-colors.saved.json"
+fi
 tar --no-same-owner -xzf "$ASSET" -C /opt/smartdns-webui
+if [ -f "$WORKDIR/group-colors.saved.json" ]; then
+  install -m 644 "$WORKDIR/group-colors.saved.json" /opt/smartdns-webui/group-colors.json
+fi
 )
 ```
 
-构建包来自 [Latest Release](https://github.com/nrjycyd/smartdns-webui/releases/latest)，其内部直接是网页文件，不需要再编译。首次安装后继续下一步；以后更新 UI 时重新运行上述命令，然后刷新页面即可。已有 UI 会先备份到 `/tmp/smartdns-webui-backup-日期时间.tar.gz`。
+构建包来自 [Latest Release](https://github.com/nrjycyd/smartdns-webui/releases/latest)，其内部直接是网页文件，不需要再编译。首次安装后继续下一步；以后更新 UI 时重新运行上述命令，然后刷新页面即可。已有 UI 会先备份到 `/tmp/smartdns-webui-backup-日期时间.tar.gz`，已有的 `group-colors.json` 会在解压后恢复。
 
 ### 2. 设置 SmartDNS 网页目录
 
@@ -177,6 +183,14 @@ window.isSecureContext
 - **标题栏颜色：** 在页面右上角切换浅色、深色或跟随系统，支持的浏览器会同步调整窗口标题栏颜色；iOS 状态栏的具体效果由系统和浏览器决定，尚未做真机验证。
 - **仍显示旧图标：** 刷新页面后卸载并重新安装应用，保留网站数据。固定在任务栏的图标也可重新固定。桌面图标使用透明背景，Android 自适应图标和 Apple Touch 图标使用绿色实底。
 - **更新后检查：** `/manifest.json`、`/sw.js`、`/offline.html` 和 `/icons/` 下的图标应能直接访问，不能被登录重定向或网页回退替换。已安装应用刷新后会获取新页面。
+
+## 查询日志分组颜色与图标
+
+编辑 WebUI 目录中的 `group-colors.json`，可为“组”列配置文字颜色 `color`、Iconify 图标 `icon` 和独立的图标颜色 `iconColor`。默认提供 REJECT 红色双调盾牌、PROXY 蓝色星芒地球、DIRECT 绿色双调闪电图标，并随面板深浅色主题调整配色。
+
+组名直接来自 SmartDNS 日志，无需同步维护分组名单。未配置的组保持原样；文件留空、缺失、格式错误或为 `{}` 时回退到原有显示。`color` 留空使用主题默认文字颜色，`icon` 留空不显示图标，`iconColor` 留空跟随文字颜色。修改后刷新页面或点击查询日志的刷新按钮即可生效。
+
+默认三枚图标随 UI 打包，无需访问公网；其他图标名需要浏览器访问 Iconify API。完整格式、示例和升级配置保留步骤见 [分组显示配置说明](docs/group-colors.md)。
 
 ## GitHub 自动发布
 

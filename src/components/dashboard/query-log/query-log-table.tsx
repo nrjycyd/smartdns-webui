@@ -35,6 +35,7 @@ import i18n from '@/components/core/i18n';
 import { Delete, Domain } from '@mui/icons-material';
 import { type SnackbarOrigin, SnackbarProvider, useSnackbar } from 'notistack';
 import { getDomainTypeName, getDomainTypeId } from './domain-type';
+import { GroupAppearanceProvider, GroupLabel, useGroupAppearance } from './group-label';
 
 
 interface UserApiResponse {
@@ -53,6 +54,7 @@ interface PageCursor {
 
 function TableQueryLogs(): React.JSX.Element {
   const { t } = useTranslation();
+  const { refresh: refreshGroupAppearance } = useGroupAppearance();
 
   const columns = useMemo<MRTColumnDef<DomainList>[]>(
     () => [
@@ -154,13 +156,7 @@ function TableQueryLogs(): React.JSX.Element {
         header: t('Group'),
         columnFilterModeOptions: ['equals'],
         enableColumnActions: false,
-        Cell: ({ cell }) => {
-          const group = cell.getValue<string>();
-          if (!group || group === 'default') {
-            return <span>{t('Default')}</span>;
-          }
-          return <span>{group}</span>;
-        },
+        Cell: ({ cell }) => <GroupLabel group={cell.getValue<string | null | undefined>()} />,
       },
       {
         accessorKey: 'is_blocked',
@@ -652,9 +648,11 @@ function TableQueryLogs(): React.JSX.Element {
       <Tooltip arrow title={t("Refresh Data")}>
         <span>
           <IconButton
+            aria-label={t('Refresh Data')}
             disabled={isRefetching}
             onClick={() => {
               pageCursor.current = null;
+              refreshGroupAppearance();
               refetch().catch((_error: unknown) => {
                 // NOOP
               });
@@ -760,9 +758,11 @@ export function QueryLogTable(): React.JSX.Element {
       <SnackbarProvider
         anchorOrigin={state}
         maxSnack={5} autoHideDuration={6000}>
-        <Card>
-          <TableQueryLogs />
-        </Card>
+        <GroupAppearanceProvider>
+          <Card>
+            <TableQueryLogs />
+          </Card>
+        </GroupAppearanceProvider>
       </SnackbarProvider>
     </QueryClientProvider>
   );
