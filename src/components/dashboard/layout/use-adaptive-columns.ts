@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { fitColumnWidths, measureColumnContent, singleLineCellSx, singleLineCopySx, singleLineHeaderSx } from './column-widths';
+import { COPY_BUTTON_INLINE_PADDING, createColumnWidthTarget, fitColumnWidths, measureColumnContent, singleLineCellSx, singleLineCopySx, singleLineHeaderSx } from './column-widths';
 import { useTableWidth } from './table-width-provider';
 import type { TableDensity } from './table-density-provider';
 
@@ -46,7 +46,7 @@ export function useAdaptiveColumns<T extends object>({ columns, data, visibility
       const weight = style.fontWeight;
       const spacing = Number.parseFloat(style.letterSpacing) || 0;
       const rem = Number.parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
-      const copyPadding = copyButton ? (Number.parseFloat(style.paddingLeft) || 0) + (Number.parseFloat(style.paddingRight) || 0) : window.isSecureContext ? 24 : 0;
+      const copyPadding = copyButton ? (Number.parseFloat(style.paddingLeft) || 0) + (Number.parseFloat(style.paddingRight) || 0) : window.isSecureContext ? COPY_BUTTON_INLINE_PADDING * 2 : 0;
       setMeasurement((previous) => previous.width === width && previous.font === font && previous.weight === weight && previous.spacing === spacing && previous.rem === rem && previous.copyPadding === copyPadding ? previous : { ...previous, width, font, weight, spacing, rem, copyPadding });
     };
     const schedule = () => { cancelAnimationFrame(frame); frame = requestAnimationFrame(measure); };
@@ -72,7 +72,6 @@ export function useAdaptiveColumns<T extends object>({ columns, data, visibility
     const targets = columns.flatMap((column) => {
       const id = column.id ?? column.accessorKey;
       if (!id || visibility[id] === false) return [];
-      const wide = /domain|client|host|^ip$/.test(id) && id !== 'domain_group';
       const samples = data.slice(0, 80).map((row) => text ? text(row, id) : String(row[id as keyof T] ?? ''));
       let content = measureColumnContent(id, samples, measure);
       if (id === 'domain_type') content = Math.max(content, measure('AAAA'), measure('HTTPS'));
@@ -97,9 +96,7 @@ export function useAdaptiveColumns<T extends object>({ columns, data, visibility
       }
       const controls = (filtering && column.enableColumnFilter !== false ? 20 : 0) + (sorting && column.enableSorting !== false ? 20 : 0) + (columnActions && column.enableColumnActions !== false ? 24 : 0);
       const min = Math.ceil(Math.max(column.minSize ?? 0, floor, measure(column.header, true) + padding + controls));
-      const tight = id === 'is_cached' || id === 'query_time';
-      const max = tight ? min : Math.max(min, column.maxSize ?? (wide ? 560 : 300));
-      return [{ id, min, max, preferred: tight ? min : Math.max(min, content + contentAllowance + 16), weight: tight ? 0 : wide ? 3 : 1 }];
+      return [createColumnWidthTarget(id, min, content + contentAllowance + 16, column.maxSize)];
     });
     const actionWidth = density === 'compact' ? 72 : 90;
     if (actions && visibility['mrt-row-actions'] !== false) targets.push({ id: 'mrt-row-actions', min: actionWidth, max: actionWidth, preferred: actionWidth, weight: 0 });

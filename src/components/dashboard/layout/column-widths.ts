@@ -6,6 +6,15 @@ export interface ColumnWidthTarget {
   weight: number;
 }
 
+export const COPY_BUTTON_INLINE_PADDING = 4;
+
+export function createColumnWidthTarget(id: string, min: number, preferred: number, max?: number): ColumnWidthTarget {
+  const address = /^ip$|^client$|_ip$/.test(id);
+  const elastic = address || /^(domain|host|hostname)$/.test(id);
+  if (!elastic) return { id, min, preferred: min, max: min, weight: 0 };
+  return { id, min, preferred: Math.max(min, preferred), max: Math.max(min, max ?? (address ? 220 : 560)), weight: address ? 1 : 3 };
+}
+
 function isIpv6Address(value: string): boolean {
   const input = value.trim();
   const bracketed = /^\[([^\]]+)\](?::\d+)?$/.exec(input);
@@ -32,6 +41,7 @@ export const singleLineCellSx = {
 } as const;
 
 export const singleLineCopySx = {
+  paddingLeft: `${COPY_BUTTON_INLINE_PADDING}px`, paddingRight: `${COPY_BUTTON_INLINE_PADDING}px`,
   minWidth: 0, maxWidth: '100%', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
   '& > span': { minWidth: 0, maxWidth: '100%', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' },
 } as const;

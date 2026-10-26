@@ -7,7 +7,7 @@ const source = await readFile(new URL('../src/components/dashboard/layout/column
 const compiled = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
 const exports = {};
 new Function('exports', compiled)(exports);
-const { fitColumnWidths, measureColumnContent } = exports;
+const { createColumnWidthTarget, fitColumnWidths, measureColumnContent } = exports;
 const columns = [
   { id: 'domain', min: 160, preferred: 400, max: 700, weight: 3 },
   { id: 'count', min: 90, preferred: 120, max: 180, weight: 1 },
@@ -75,4 +75,35 @@ test('IPv4 values and colon-containing non-IP content still participate in sizin
   assert.equal(measureColumnContent('hostname', ['2001:db8::1'], measure), 11);
   assert.equal(measureColumnContent('domain', ['proxy:server'], measure), 12);
   assert.equal(measureColumnContent('ip', ['proxy:53'], measure), 8);
+});
+
+
+test('extra space goes to long fields while short fields keep their content widths', () => {
+  const compact = [
+    ['id', 84], ['domain_type', 80], ['timestamp', 190], ['ping_time', 100],
+    ['domain_group', 130], ['is_blocked', 90], ['is_cached', 72], ['query_time', 92],
+    ['reply_code', 80], ['port', 80], ['server_type', 80], ['security', 90],
+    ['status', 80], ['query_success_rate', 110], ['avg_time', 100],
+    ['total_query_count', 130], ['total_query_success', 140], ['mac', 170],
+  ];
+  for (const [id, min] of compact) {
+    const targets = [createColumnWidthTarget(id, min, min + 50), createColumnWidthTarget('domain', 180, 240)];
+    const fitted = fitColumnWidths(targets, min + 500);
+    assert.equal(fitted[id], min, `${id} must not absorb spare width`);
+    assert.equal(fitted.domain, 500);
+  }
+});
+
+test('address widths are bounded and spare space favors host names and domains', () => {
+  const targets = [createColumnWidthTarget('domain', 180, 200), createColumnWidthTarget('client', 140, 140)];
+  const fitted = fitColumnWidths(targets, 500);
+  assert(fitted.domain - 200 > fitted.client - 140);
+  assert.deepEqual(fitColumnWidths(targets, 1000), { domain: 560, client: 220 });
+  assert.equal(fitColumnWidths([createColumnWidthTarget('hostname', 160, 200, 350)], 800).hostname, 350);
+});
+
+test('larger short-field content expands its protected width without clipping on narrow screens', () => {
+  const targets = [createColumnWidthTarget('query_time', 180, 196), createColumnWidthTarget('timestamp', 240, 256)];
+  assert.deepEqual(fitColumnWidths(targets, 300), { query_time: 180, timestamp: 240 });
+  assert.deepEqual(fitColumnWidths(targets, 1000), { query_time: 180, timestamp: 240 });
 });
