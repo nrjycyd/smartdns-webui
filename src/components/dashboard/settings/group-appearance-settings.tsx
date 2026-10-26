@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { Alert, Autocomplete, Box, Button, Chip, CircularProgress, Divider, InputAdornment, MenuItem, Stack, TextField, Typography } from '@mui/material';
+import { Alert, Autocomplete, Box, Button, CircularProgress, Divider, InputAdornment, MenuItem, Stack, TextField, Typography } from '@mui/material';
 import { useTranslation } from 'react-i18next';
 
 import { EMPTY_GROUP_APPEARANCES, getGroupAppearance, isGroupIconName, joinThemeColors, mergeGroupAppearances, parseGroupOverrides, serializeGroupOverrides, setGroupOverride, splitThemeColor, type GroupAppearanceField, type GroupAppearances } from '@/components/dashboard/query-log/group-appearance';
@@ -66,7 +66,7 @@ function GroupAppearanceEditor(): React.JSX.Element {
   const { defaults, overrides, knownGroups, storageError, save, refresh } = useGroupAppearance();
   const [draft, setDraft] = React.useState(overrides);
   const [baseline, setBaseline] = React.useState(overrides);
-  const [selected, setSelected] = React.useState(Object.keys(defaults)[0] || Object.keys(overrides)[0] || 'default');
+  const [selectedName, setSelected] = React.useState(Object.keys(defaults)[0] || 'default');
   const [editingIcon, setEditingIcon] = React.useState(false);
   const [message, setMessage] = React.useState<{ severity: 'success' | 'info' | 'error'; text: string } | null>(null);
   const fileInput = React.useRef<HTMLInputElement>(null);
@@ -82,7 +82,8 @@ function GroupAppearanceEditor(): React.JSX.Element {
 
   const merged = React.useMemo(() => mergeGroupAppearances(defaults, draft), [defaults, draft]);
   const errorGroup = validateOverrides(draft, defaults);
-  const names = [...new Set([...Object.keys(defaults), ...Object.keys(draft), ...knownGroups, selected, 'default'])].toSorted();
+  const names = [...new Set([...Object.keys(defaults), ...knownGroups, 'default'])].toSorted();
+  const selected = names.includes(selectedName) ? selectedName : names[0];
   const rule = getGroupAppearance(draft, selected) ?? {};
   const fileDefault = getGroupAppearance(defaults, selected);
   const effective = getGroupAppearance(merged, selected);
@@ -111,7 +112,7 @@ function GroupAppearanceEditor(): React.JSX.Element {
       const next = parseGroupOverrides(await file.text());
       if (validateOverrides(next, defaults)) throw new Error('Invalid appearance');
       setDraft(next);
-      setSelected(Object.keys(next)[0] || Object.keys(defaults)[0] || 'default');
+      setSelected(names.find((name) => Object.hasOwn(next, name)) || selected);
       setEditingIcon(false);
       setMessage({ severity: 'info', text: t('Custom settings imported. Review the preview and save.') });
     } catch {
@@ -137,14 +138,11 @@ function GroupAppearanceEditor(): React.JSX.Element {
       {storageError && message?.severity !== 'error' && <Alert severity="warning">{t('Local settings could not be read or saved. Check browser storage permissions.')}</Alert>}
       {externalChange && dirty && <Alert severity="info">{t('Settings changed in another window. Cancel to load them, or save your current edits.')}</Alert>}
       {message && <Alert severity={message.severity}>{message.text}</Alert>}
-      <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ alignItems: { sm: 'flex-start' } }}>
-        <Autocomplete
-          freeSolo fullWidth options={names} value={selected}
-          onChange={(_event, value) => { if (value?.trim()) { setSelected(value.trim()); setEditingIcon(false); setMessage(null); } }}
-          renderInput={(params) => <TextField {...params} label={t('Group')} helperText={t('Choose a known group, or enter a name and press Enter. This does not create a SmartDNS group.')} />}
-        />
-        <Chip label={t(Object.keys(rule).length > 0 ? 'Custom' : 'Default')} color={Object.keys(rule).length > 0 ? 'primary' : 'default'} size="small" variant="outlined" sx={{ mt: { sm: '16px !important' }, alignSelf: 'flex-start' }} />
-      </Stack>
+      <Autocomplete
+        disableClearable fullWidth options={names} value={selected}
+        onChange={(_event, value) => { if (names.includes(value)) { setSelected(value); setEditingIcon(false); setMessage(null); } }}
+        renderInput={(params) => <TextField {...params} label={t('Group')} helperText={t('Choose a known group. Type to search existing groups.')} />}
+      />
       <ColorRuleEditor label={t('Text color')} value={rule.color} fallback={fileDefault?.color} emptyLabel={t('Theme default text color')} onChange={(value) => { change('color', value); }} />
       <Stack spacing={2}>
         <TextField select fullWidth label={t('Group icon')} value={iconMode} onChange={(event) => { setEditingIcon(event.target.value === 'custom'); change('icon', event.target.value === 'file' ? undefined : event.target.value === 'empty' ? '' : effective?.icon || 'keyline-icons:shield-off-duotone'); }}>
