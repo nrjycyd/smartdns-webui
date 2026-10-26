@@ -115,6 +115,7 @@ function TableClients(): React.JSX.Element {
       {
         accessorKey: 'client_ip',
         header: t('Client IP'),
+        Cell: ({ cell }) => <Tooltip title={cell.getValue<string>()} arrow placement="top"><span>{cell.getValue<string>()}</span></Tooltip>,
         size: 360,
         enableColumnActions: false,
         columnFilterModeOptions: ['contains', 'equals'],
@@ -374,7 +375,7 @@ function TableClients(): React.JSX.Element {
     if (id === 'last_query_timestamp') return new Date(row.last_query_timestamp).toLocaleString();
     return String(row[id as keyof ClientList] ?? '');
   }, [clientNames]);
-  const widths = useAdaptiveColumns({ columns, data, visibility: columnVisibility, density, manualSizing: columnSizing, text: widthText, actions: true });
+  const widths = useAdaptiveColumns({ layout: 'clients', columns, data, visibility: columnVisibility, density, manualSizing: columnSizing, text: widthText, actions: true });
 
   const table = useMaterialReactTable({
     onDensityChange: previewDensity,

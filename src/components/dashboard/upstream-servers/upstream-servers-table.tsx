@@ -196,7 +196,7 @@ function TableUpstreamServers(): React.JSX.Element {
     if (id === 'avg_time') return row.avg_time >= 0 ? `${row.avg_time} ms` : 'N/A';
     return String(row[id as keyof UpStreamServers] ?? '');
   }, []);
-  const widths = useAdaptiveColumns({ columns, data, visibility: columnVisibility, density, manualSizing: columnSizing, text: widthText, filtering: false, sorting: true, columnActions: false });
+  const widths = useAdaptiveColumns({ layout: 'upstream-servers', columns, data, visibility: columnVisibility, density, manualSizing: columnSizing, text: widthText, filtering: false, sorting: true, columnActions: false });
 
   const table = useMaterialReactTable({
     onDensityChange: previewDensity,

@@ -87,7 +87,7 @@ test('extra space goes to long fields while short fields keep their content widt
     ['total_query_count', 130], ['total_query_success', 140], ['mac', 170],
   ];
   for (const [id, min] of compact) {
-    const targets = [createColumnWidthTarget(id, min, min + 50), createColumnWidthTarget('domain', 180, 240)];
+    const targets = [createColumnWidthTarget('query-log', id, min, min + 50), createColumnWidthTarget('query-log', 'domain', 180, 240)];
     const fitted = fitColumnWidths(targets, min + 500);
     assert.equal(fitted[id], min, `${id} must not absorb spare width`);
     assert.equal(fitted.domain, 500);
@@ -95,15 +95,47 @@ test('extra space goes to long fields while short fields keep their content widt
 });
 
 test('address widths are bounded and spare space favors host names and domains', () => {
-  const targets = [createColumnWidthTarget('domain', 180, 200), createColumnWidthTarget('client', 140, 140)];
+  const targets = [createColumnWidthTarget('query-log', 'domain', 180, 200), createColumnWidthTarget('query-log', 'client', 140, 140)];
   const fitted = fitColumnWidths(targets, 500);
   assert(fitted.domain - 200 > fitted.client - 140);
   assert.deepEqual(fitColumnWidths(targets, 1000), { domain: 560, client: 220 });
-  assert.equal(fitColumnWidths([createColumnWidthTarget('hostname', 160, 200, 350)], 800).hostname, 350);
+  assert.equal(fitColumnWidths([createColumnWidthTarget('clients', 'hostname', 160, 200, 350)], 800).hostname, 350);
 });
 
 test('larger short-field content expands its protected width without clipping on narrow screens', () => {
-  const targets = [createColumnWidthTarget('query_time', 180, 196), createColumnWidthTarget('timestamp', 240, 256)];
+  const targets = [createColumnWidthTarget('query-log', 'query_time', 180, 196), createColumnWidthTarget('query-log', 'timestamp', 240, 256)];
   assert.deepEqual(fitColumnWidths(targets, 300), { query_time: 180, timestamp: 240 });
   assert.deepEqual(fitColumnWidths(targets, 1000), { query_time: 180, timestamp: 240 });
+});
+
+
+test('client layout gives IPv6 and device identity their own budgets', () => {
+  const measure = (value) => value.length * 8;
+  const values = ['fd66:911f:3a47:0:e167:7d3:e6d0:ba4a'];
+  assert.equal(measureColumnContent('client_ip', values, measure), 0);
+  assert(measureColumnContent('client_ip', values, measure, true) > 220);
+  const targets = [
+    createColumnWidthTarget('clients', 'client_ip', 340, 360),
+    createColumnWidthTarget('clients', 'hostname', 160, 180),
+    createColumnWidthTarget('clients', 'mac', 170, 180),
+    createColumnWidthTarget('clients', 'last_query_timestamp', 200, 210),
+  ];
+  const fitted = fitColumnWidths(targets, 1400);
+  assert(fitted.client_ip >= 340 && fitted.client_ip <= 520);
+  assert(fitted.hostname <= 360);
+  assert(fitted.mac >= 170);
+  assert(fitted.last_query_timestamp >= 200);
+  assert(fitted.hostname < fitted.client_ip);
+});
+
+test('upstream layout shares spare width with statistics and bounds host/address columns', () => {
+  const fields = [['host', 160], ['ip', 140], ['port', 80], ['server_type', 80], ['security', 100], ['status', 80], ['query_success_rate', 120], ['avg_time', 120], ['total_query_count', 140], ['total_query_success', 140]];
+  const targets = fields.map(([id, min]) => createColumnWidthTarget('upstream-servers', id, min, min + 16));
+  const fitted = fitColumnWidths(targets, 1600);
+  assert(fitted.host <= 320 && fitted.ip <= 320);
+  assert.equal(fitted.port, 80);
+  assert(fitted.total_query_count > 140);
+  assert(fitted.total_query_success > 140);
+  assert(Object.values(fitted).reduce((sum, width) => sum + width, 0) >= 1590);
+  for (const [id, min] of fields) assert(fitted[id] >= min);
 });

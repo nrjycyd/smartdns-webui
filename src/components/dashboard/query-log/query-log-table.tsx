@@ -581,7 +581,7 @@ function TableQueryLogs(): React.JSX.Element {
     if (id === 'query_time') return `${row.query_time} ms`;
     return String(row[id as keyof DomainList] ?? '');
   }, [t]);
-  const widths = useAdaptiveColumns({ columns, data, visibility: columnVisibility, density, manualSizing: columnSizing, text: widthText, actions: true, optionalColumn: 'reply_code' });
+  const widths = useAdaptiveColumns({ layout: 'query-log', columns, data, visibility: columnVisibility, density, manualSizing: columnSizing, text: widthText, actions: true, optionalColumn: 'reply_code' });
 
   const table = useMaterialReactTable({
     onDensityChange: previewDensity,

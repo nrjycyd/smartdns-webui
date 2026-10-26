@@ -8,11 +8,36 @@ export interface ColumnWidthTarget {
 
 export const COPY_BUTTON_INLINE_PADDING = 4;
 
-export function createColumnWidthTarget(id: string, min: number, preferred: number, max?: number): ColumnWidthTarget {
+export type TableColumnLayout = 'query-log' | 'upstream-servers' | 'clients';
+
+export function createColumnWidthTarget(layout: TableColumnLayout, id: string, min: number, preferred: number, max?: number): ColumnWidthTarget {
   const address = /^ip$|^client$|_ip$/.test(id);
-  const elastic = address || /^(domain|host|hostname)$/.test(id);
-  if (!elastic) return { id, min, preferred: min, max: min, weight: 0 };
-  return { id, min, preferred: Math.max(min, preferred), max: Math.max(min, max ?? (address ? 220 : 560)), weight: address ? 1 : 3 };
+  let limit = min;
+  let weight = 0;
+  if (layout === 'query-log') {
+    if (address) { limit = 220; weight = 1; }
+    else if (id === 'domain') { limit = 560; weight = 3; }
+  } else if (layout === 'clients') {
+    switch (id) {
+      case 'client_ip': { limit = 520; weight = 3; break; }
+      case 'hostname': { limit = 360; weight = 2; break; }
+      case 'mac': { limit = min + 48; weight = 1; break; }
+      case 'last_query_timestamp': { limit = min + 48; weight = 1; break; }
+    }
+  } else {
+    switch (id) {
+      case 'host':
+      case 'ip': { limit = 320; weight = 2; break; }
+      case 'security':
+      case 'status': { limit = min + 24; weight = 1; break; }
+      case 'query_success_rate':
+      case 'avg_time':
+      case 'total_query_count':
+      case 'total_query_success': { limit = min + 48; weight = 1; break; }
+    }
+  }
+  if (weight === 0) return { id, min, preferred: min, max: min, weight };
+  return { id, min, preferred: Math.max(min, preferred), max: Math.max(min, max ?? limit), weight };
 }
 
 function isIpv6Address(value: string): boolean {
@@ -25,11 +50,11 @@ function isIpv6Address(value: string): boolean {
   } catch { return false; }
 }
 
-export function measureColumnContent(id: string, values: readonly string[], measure: (value: string) => number): number {
+export function measureColumnContent(id: string, values: readonly string[], measure: (value: string) => number, includeIpv6 = false): number {
   const ipColumn = /^ip$|^client$|_ip$/.test(id);
   let width = 0;
   for (const value of values) {
-    if (ipColumn && isIpv6Address(value)) continue;
+    if (ipColumn && !includeIpv6 && isIpv6Address(value)) continue;
     width = Math.max(width, measure(value));
   }
   return width;
@@ -42,6 +67,7 @@ export const singleLineCellSx = {
 
 export const singleLineCopySx = {
   paddingLeft: `${COPY_BUTTON_INLINE_PADDING}px`, paddingRight: `${COPY_BUTTON_INLINE_PADDING}px`,
+  justifyContent: 'flex-start',
   minWidth: 0, maxWidth: '100%', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
   '& > span': { minWidth: 0, maxWidth: '100%', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' },
 } as const;

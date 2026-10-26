@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import { COPY_BUTTON_INLINE_PADDING, createColumnWidthTarget, fitColumnWidths, measureColumnContent, singleLineCellSx, singleLineCopySx, singleLineHeaderSx } from './column-widths';
+import type { TableColumnLayout } from './column-widths';
 import { useTableWidth } from './table-width-provider';
 import type { TableDensity } from './table-density-provider';
 
@@ -16,7 +17,13 @@ interface Column {
   enableColumnActions?: boolean;
 }
 
-export function useAdaptiveColumns<T extends object>({ columns, data, visibility, density, manualSizing, text, actions = false, optionalColumn, filtering = true, sorting = false, columnActions = true }: {
+function outerWidth(node: Element): number {
+  const style = getComputedStyle(node);
+  return Math.max(node.getBoundingClientRect().width, node.scrollWidth) + (Number.parseFloat(style.marginLeft) || 0) + (Number.parseFloat(style.marginRight) || 0);
+}
+
+export function useAdaptiveColumns<T extends object>({ layout: pageLayout, columns, data, visibility, density, manualSizing, text, actions = false, optionalColumn, filtering = true, sorting = false, columnActions = true }: {
+  layout: TableColumnLayout;
   columns: readonly Column[];
   data: readonly T[];
   visibility: Record<string, boolean>;
@@ -32,31 +39,8 @@ export function useAdaptiveColumns<T extends object>({ columns, data, visibility
   const { mode } = useTableWidth();
   const automatic = mode === 'auto';
   const containerRef = React.useRef<HTMLDivElement>(null);
-  const [measurement, setMeasurement] = React.useState({ width: 0, font: '14px sans-serif', weight: '400', spacing: 0, rem: 16, copyPadding: 0, revision: 0 });
+  const [measurement, setMeasurement] = React.useState({ width: 0, font: '14px sans-serif', weight: '400', spacing: 0, rem: 16, copyPadding: 0, headerDensity: density, headers: {} as Record<string, number>, revision: 0 });
 
-  React.useLayoutEffect(() => {
-    const element = containerRef.current;
-    if (!automatic || !element) return;
-    let frame = 0;
-    const measure = () => {
-      const copyButton = element.querySelector('tbody td .MuiButton-root');
-      const style = getComputedStyle(copyButton ?? element.querySelector('td') ?? element.querySelector('th') ?? element);
-      const width = Math.floor(element.clientWidth);
-      const font = `${style.fontSize} ${style.fontFamily}`;
-      const weight = style.fontWeight;
-      const spacing = Number.parseFloat(style.letterSpacing) || 0;
-      const rem = Number.parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
-      const copyPadding = copyButton ? (Number.parseFloat(style.paddingLeft) || 0) + (Number.parseFloat(style.paddingRight) || 0) : window.isSecureContext ? COPY_BUTTON_INLINE_PADDING * 2 : 0;
-      setMeasurement((previous) => previous.width === width && previous.font === font && previous.weight === weight && previous.spacing === spacing && previous.rem === rem && previous.copyPadding === copyPadding ? previous : { ...previous, width, font, weight, spacing, rem, copyPadding });
-    };
-    const schedule = () => { cancelAnimationFrame(frame); frame = requestAnimationFrame(measure); };
-    const fontsLoaded = () => { measure(); setMeasurement((previous) => ({ ...previous, revision: previous.revision + 1 })); };
-    measure();
-    const observer = new ResizeObserver(schedule);
-    observer.observe(element);
-    document.fonts?.addEventListener('loadingdone', fontsLoaded);
-    return () => { observer.disconnect(); cancelAnimationFrame(frame); document.fonts?.removeEventListener('loadingdone', fontsLoaded); };
-  }, [automatic]);
 
   const layout = React.useMemo(() => {
     if (!automatic || measurement.width === 0) return { columnSizing: manualSizing, columnVisibility: visibility };
@@ -73,7 +57,7 @@ export function useAdaptiveColumns<T extends object>({ columns, data, visibility
       const id = column.id ?? column.accessorKey;
       if (!id || visibility[id] === false) return [];
       const samples = data.slice(0, 80).map((row) => text ? text(row, id) : String(row[id as keyof T] ?? ''));
-      let content = measureColumnContent(id, samples, measure);
+      let content = measureColumnContent(id, samples, measure, pageLayout !== 'query-log');
       if (id === 'domain_type') content = Math.max(content, measure('AAAA'), measure('HTTPS'));
       if (id === 'ping_time') content = Math.max(content, measure('999.9 ms'));
       let floor = Math.max(80, Math.min(300, Math.ceil(content + contentAllowance)));
@@ -81,7 +65,7 @@ export function useAdaptiveColumns<T extends object>({ columns, data, visibility
         case 'domain': { floor = Math.max(180, Math.min(360, Math.ceil(content + padding + 8))); break;
         }
         case 'host':
-        case 'hostname': { floor = Math.max(160, Math.min(360, Math.ceil(content + padding + 8))); break;
+        case 'hostname': { floor = Math.max(160, Math.min(pageLayout === 'upstream-servers' ? 280 : 320, Math.ceil(content + contentAllowance))); break;
         }
         case 'mac': { floor = Math.max(150, Math.ceil(content + contentAllowance)); break;
         }
@@ -91,12 +75,12 @@ export function useAdaptiveColumns<T extends object>({ columns, data, visibility
         }
         default: {
           if (/timestamp/.test(id)) floor = Math.max(170, Math.ceil(content + contentAllowance));
-          else if (/^ip$|^client$|_ip$/.test(id)) floor = Math.max(140, Math.min(220, Math.ceil(content + contentAllowance)));
+          else if (/^ip$|^client$|_ip$/.test(id)) floor = Math.max(140, Math.min(pageLayout === 'query-log' ? 220 : pageLayout === 'clients' ? 440 : 320, Math.ceil(content + contentAllowance)));
         }
       }
       const controls = (filtering && column.enableColumnFilter !== false ? 20 : 0) + (sorting && column.enableSorting !== false ? 20 : 0) + (columnActions && column.enableColumnActions !== false ? 24 : 0);
-      const min = Math.ceil(Math.max(column.minSize ?? 0, floor, measure(column.header, true) + padding + controls));
-      return [createColumnWidthTarget(id, min, content + contentAllowance + 16, column.maxSize)];
+      const min = Math.ceil(Math.max(column.minSize ?? 0, floor, measurement.headers[column.header] ?? (measure(column.header, true) + padding + controls)));
+      return [createColumnWidthTarget(pageLayout, id, min, content + contentAllowance + 16, column.maxSize)];
     });
     const actionWidth = density === 'compact' ? 72 : 90;
     if (actions && visibility['mrt-row-actions'] !== false) targets.push({ id: 'mrt-row-actions', min: actionWidth, max: actionWidth, preferred: actionWidth, weight: 0 });
@@ -106,7 +90,51 @@ export function useAdaptiveColumns<T extends object>({ columns, data, visibility
       columnSizing: fitColumnWidths(hiddenColumn ? targets.filter((column) => column.id !== hiddenColumn) : targets, measurement.width),
       columnVisibility: hiddenColumn ? { ...visibility, [hiddenColumn]: false } : visibility,
     };
-  }, [automatic, columns, data, visibility, density, manualSizing, measurement, text, actions, optionalColumn, filtering, sorting, columnActions]);
+  }, [automatic, pageLayout, columns, data, visibility, density, manualSizing, measurement, text, actions, optionalColumn, filtering, sorting, columnActions]);
+
+  React.useLayoutEffect(() => {
+    const element = containerRef.current;
+    if (!automatic || !element) return;
+    let frame = 0;
+    const measure = () => {
+      const copyButton = element.querySelector('tbody td .MuiButton-root');
+      const style = getComputedStyle(copyButton ?? element.querySelector('td') ?? element.querySelector('th') ?? element);
+      const width = Math.floor(element.clientWidth);
+      const font = `${style.fontSize} ${style.fontFamily}`;
+      const weight = style.fontWeight;
+      const spacing = Number.parseFloat(style.letterSpacing) || 0;
+      const rem = Number.parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
+      const copyPadding = copyButton ? (Number.parseFloat(style.paddingLeft) || 0) + (Number.parseFloat(style.paddingRight) || 0) : window.isSecureContext ? COPY_BUTTON_INLINE_PADDING * 2 : 0;
+      const context = document.createElement('canvas').getContext('2d');
+      const headers: Record<string, number> = {};
+      for (const th of element.querySelectorAll('thead th')) {
+        const wrapper = th.querySelector('.Mui-TableHeadCell-Content-Wrapper');
+        if (!wrapper?.textContent || !context) continue;
+        const headerStyle = getComputedStyle(wrapper);
+        const cellStyle = getComputedStyle(th);
+        context.font = `${headerStyle.fontWeight} ${headerStyle.fontSize} ${headerStyle.fontFamily}`;
+        const title = wrapper.textContent;
+        const spacing = Number.parseFloat(headerStyle.letterSpacing) || 0;
+        const controls = [...(wrapper.parentElement?.children ?? [])].filter((child) => child !== wrapper).reduce((sum, child) => sum + outerWidth(child), 0);
+        const actions = th.querySelector('.Mui-TableHeadCell-Content-Actions');
+        headers[title] = Math.ceil(context.measureText(title).width + Math.max(0, title.length - 1) * spacing + controls + (actions ? outerWidth(actions) : 0) + (Number.parseFloat(cellStyle.paddingLeft) || 0) + (Number.parseFloat(cellStyle.paddingRight) || 0) + 8);
+      }
+      setMeasurement((previous) => {
+        // Clipped or temporarily hidden controls must not shrink a measured header.
+        const nextHeaders = previous.headerDensity === density && previous.rem === rem ? { ...previous.headers } : {};
+        for (const [title, width] of Object.entries(headers)) nextHeaders[title] = Math.max(nextHeaders[title] ?? 0, width);
+        if (previous.width === width && previous.font === font && previous.weight === weight && previous.spacing === spacing && previous.rem === rem && previous.copyPadding === copyPadding && previous.headerDensity === density && JSON.stringify(previous.headers) === JSON.stringify(nextHeaders)) return previous;
+        return { ...previous, width, font, weight, spacing, rem, copyPadding, headerDensity: density, headers: nextHeaders };
+      });
+    };
+    const schedule = () => { cancelAnimationFrame(frame); frame = requestAnimationFrame(measure); };
+    const fontsLoaded = () => { measure(); setMeasurement((previous) => ({ ...previous, revision: previous.revision + 1 })); };
+    measure();
+    const observer = new ResizeObserver(schedule);
+    observer.observe(element);
+    document.fonts?.addEventListener('loadingdone', fontsLoaded);
+    return () => { observer.disconnect(); cancelAnimationFrame(frame); document.fonts?.removeEventListener('loadingdone', fontsLoaded); };
+  }, [automatic, columns, density, layout.columnVisibility, data.length]);
 
   return { automatic, containerRef, ...layout, cellSx: singleLineCellSx, copySx: singleLineCopySx, headerSx: singleLineHeaderSx };
 }
