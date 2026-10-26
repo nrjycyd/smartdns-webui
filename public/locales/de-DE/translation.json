@@ -160,7 +160,7 @@
   "Choose color": "Farbe wählen",
   "Enter a valid color.": "Eine gültige Farbe eingeben.",
   "Custom changes are stored only in this browser and address. Other devices and server configuration are unchanged.": "Anpassungen gelten nur in diesem Browser und für diese Adresse. Andere Geräte und die Serverkonfiguration bleiben unverändert.",
-  "Choose a known group. Type to search existing groups.": "Wählen Sie eine bekannte Gruppe. Durch Eingabe können Sie vorhandene Gruppen suchen.",
+  "Choose a known group, or enter a name and press Enter. This does not create a SmartDNS group.": "Bekannte Gruppe wählen oder einen Namen eingeben und Enter drücken. Dadurch wird keine SmartDNS-Gruppe angelegt.",
   "Group appearance saved in this browser.": "Gruppendarstellung in diesem Browser gespeichert.",
   "Could not save local settings. Check browser storage permissions.": "Lokale Einstellungen konnten nicht gespeichert werden. Browser-Speicherberechtigungen prüfen.",
   "Local settings could not be read or saved. Check browser storage permissions.": "Lokale Einstellungen konnten nicht gelesen oder gespeichert werden. Browser-Speicherberechtigungen prüfen.",

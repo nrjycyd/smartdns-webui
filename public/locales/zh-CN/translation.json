@@ -173,7 +173,7 @@
     "Choose color": "选择颜色",
     "Enter a valid color.": "请输入有效颜色。",
     "Custom changes are stored only in this browser and address. Other devices and server configuration are unchanged.": "自定义仅保存在当前浏览器和访问地址，不同步其他设备，也不修改服务端配置。",
-    "Choose a known group. Type to search existing groups.": "请选择已知分组，输入文字仅用于搜索已有分组。",
+    "Choose a known group, or enter a name and press Enter. This does not create a SmartDNS group.": "选择已知分组，或输入组名并按回车。此处不会创建 SmartDNS 分组。",
     "Group appearance saved in this browser.": "分组外观已保存在当前浏览器。",
     "Could not save local settings. Check browser storage permissions.": "无法保存本地设置，请检查浏览器存储权限。",
     "Local settings could not be read or saved. Check browser storage permissions.": "无法读取或保存本地设置，请检查浏览器存储权限。",
