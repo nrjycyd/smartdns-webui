@@ -13,12 +13,32 @@ import type { TopClients } from '@/lib/backend/server';
 import { useUser } from '@/hooks/use-user';
 import { CardLoading } from './card-loading';
 import { paths } from '@/paths';
-import { Link } from '@mui/material';
+import { Link, Typography } from '@mui/material';
 import { useTranslation } from 'react-i18next';
+import { useQuery } from '@tanstack/react-query';
+import { getClientName } from '@/components/dashboard/clients/client-names';
+import { useClientNames } from '@/components/dashboard/clients/client-names-provider';
 
 export interface TopClientsProps {
   clients: TopClients[];
   sx?: SxProps;
+}
+
+function TopClientLabel({ ip }: { ip: string }): React.JSX.Element {
+  const { names } = useClientNames();
+  const { data: client } = useQuery({
+    queryKey: ['client-name-lookup', ip],
+    enabled: Object.keys(names).length > 0,
+    staleTime: 60_000,
+    retry: false,
+    queryFn: async () => {
+      const result = await smartdnsServer.GetClients({ client_ip: ip, page_num: 1, page_size: 1 });
+      if (result.error) throw new Error('Client lookup failed');
+      return result.data?.client_list.find((entry) => entry.client_ip === ip) ?? null;
+    },
+  });
+  const custom = getClientName(names, client?.mac);
+  return <>{custom || ip}{custom && <Typography component="span" variant="caption" color="text.secondary" sx={{ display: 'block' }}>{ip}</Typography>}</>;
 }
 
 function TopClientsTable({ clients}: TopClientsProps): React.JSX.Element {
@@ -48,7 +68,7 @@ function TopClientsTable({ clients}: TopClientsProps): React.JSX.Element {
             }
             return (
               <TableRow key={client.client_ip}>
-                <TableCell><Link href={url} >{client.client_ip}</Link></TableCell>
+                <TableCell><Link href={url} ><TopClientLabel ip={client.client_ip} /></Link></TableCell>
                 <TableCell>{client.query_count}</TableCell>
               </TableRow>
             );

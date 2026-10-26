@@ -43,6 +43,9 @@ jobs:
       - name: Test group appearance
         run: npm run test:groups
 
+      - name: Test client names
+        run: npm run test:clients
+
       - name: Build
         run: npm run build
 

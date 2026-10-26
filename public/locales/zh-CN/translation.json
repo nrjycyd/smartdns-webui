@@ -198,5 +198,13 @@
     "Changes take effect immediately and are remembered in this browser for this address. Rows per page are unchanged.": "选择立即生效，并保存在当前浏览器和访问地址；离开页面或刷新后仍保留，每页显示条数不变。",
     "Could not read or save table spacing. Check browser storage permissions. Unsaved changes are not applied.": "无法读取或保存表格间距，请检查浏览器存储权限。未能保存的修改不会应用。",
     "Preview table spacing (this page only)": "临时预览间距（仅当前页面）",
-    "Use each table spacing button for a temporary preview. Leaving the page or refreshing restores the global setting.": "各表格的间距按钮可临时预览，仅影响当前页面；离开页面或刷新后恢复全局设置。"
+    "Use each table spacing button for a temporary preview. Leaving the page or refreshing restores the global setting.": "各表格的间距按钮可临时预览，仅影响当前页面；离开页面或刷新后恢复全局设置。",
+    "Custom hostname": "自定义主机名",
+    "Server hostname: {{name}}": "原始主机名：{{name}}",
+    "Filter server hostname": "筛选原始主机名",
+    "Names are UI labels saved in this browser. Devices with the same MAC share the name. Leave blank to use the server hostname.": "名称仅用于面板显示，保存在当前浏览器。同一 MAC 的设备记录共用名称；留空则使用原始主机名。",
+    "A valid MAC address is required to set a custom hostname.": "此客户端没有有效的 MAC 地址，暂时无法设置自定义主机名。",
+    "Could not read or save custom hostnames. Check browser storage permissions and stored data.": "无法读取或保存自定义主机名，请检查浏览器存储权限和已存数据。",
+    "Use up to 64 characters without line breaks or control characters.": "最多 64 个字符，支持中文和空格，不支持换行或控制字符。",
+    "Restore server hostname": "恢复原始主机名"
 }

@@ -32,8 +32,10 @@ import { useTranslation } from 'react-i18next';
 import { MRT_Localization_EN } from 'material-react-table/locales/en';
 import { MRT_Localization_ZH_HANS } from 'material-react-table/locales/zh-Hans';
 import i18n from '@/components/core/i18n';
-import { Delete, Domain } from '@mui/icons-material';
+import { Delete, Domain, EditOutlined } from '@mui/icons-material';
 import { type SnackbarOrigin, SnackbarProvider, useSnackbar } from 'notistack';
+import { ClientHostname } from './client-hostname';
+import { ClientNameDialog } from './client-name-dialog';
 
 
 interface UserApiResponse {
@@ -50,6 +52,7 @@ interface PageCursor {
 }
 
 function TableClients(): React.JSX.Element {
+  const [editingClient, setEditingClient] = useState<ClientList | null>(null);
   const [density, previewDensity] = useTableDensityPreview();
   const { t } = useTranslation();
 
@@ -122,6 +125,8 @@ function TableClients(): React.JSX.Element {
       {
         accessorKey: 'hostname',
         header: t('Host Name'),
+        Cell: ({ row }) => <ClientHostname client={row.original} />,
+        muiFilterTextFieldProps: { placeholder: t('Filter server hostname') },
         size: 250,
         enableColumnActions: false,
         columnFilterModeOptions: ['equals'],
@@ -324,6 +329,13 @@ function TableClients(): React.JSX.Element {
   const renderRowMenuItem = (closeMenu: () => void, row: MRTRow<ClientList>, table: MRTTableInstance<ClientList>): React.ReactNode[] => (
     [
       <MRTActionMenuItem
+        icon={<EditOutlined />}
+        key="custom_hostname"
+        label={t('Custom hostname')}
+        onClick={(event) => { event.preventDefault(); closeMenu(); setEditingClient(row.original); }}
+        table={table}
+      />,
+      <MRTActionMenuItem
         icon={<Domain />}
         key="mac_vendor"
         label={t('Mac Vendor')}
@@ -480,7 +492,7 @@ function TableClients(): React.JSX.Element {
     }),
   });
 
-  return (<MaterialReactTable table={table} />);
+  return (<><MaterialReactTable table={table} />{editingClient && <ClientNameDialog key={editingClient.id} client={editingClient} onClose={() => { setEditingClient(null); }} />}</>);
 };
 
 const queryClient = new QueryClient({

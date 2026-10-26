@@ -185,5 +185,13 @@
   "Changes take effect immediately and are remembered in this browser for this address. Rows per page are unchanged.": "Änderungen gelten sofort und bleiben in diesem Browser für diese Adresse gespeichert. Die Zeilenanzahl pro Seite bleibt unverändert.",
   "Could not read or save table spacing. Check browser storage permissions. Unsaved changes are not applied.": "Der Tabellenabstand konnte nicht gelesen oder gespeichert werden. Prüfen Sie die Speicherberechtigungen des Browsers. Nicht gespeicherte Änderungen werden nicht angewendet.",
   "Preview table spacing (this page only)": "Tabellenabstand vorübergehend anzeigen (nur diese Seite)",
-  "Use each table spacing button for a temporary preview. Leaving the page or refreshing restores the global setting.": "Mit der Abstandsschaltfläche jeder Tabelle können Sie eine vorübergehende Vorschau anzeigen. Beim Verlassen oder Neuladen der Seite gilt wieder die globale Einstellung."
+  "Use each table spacing button for a temporary preview. Leaving the page or refreshing restores the global setting.": "Mit der Abstandsschaltfläche jeder Tabelle können Sie eine vorübergehende Vorschau anzeigen. Beim Verlassen oder Neuladen der Seite gilt wieder die globale Einstellung.",
+  "Custom hostname": "Benutzerdefinierter Hostname",
+  "Server hostname: {{name}}": "Ursprünglicher Hostname: {{name}}",
+  "Filter server hostname": "Ursprünglichen Hostnamen filtern",
+  "Names are UI labels saved in this browser. Devices with the same MAC share the name. Leave blank to use the server hostname.": "Namen dienen nur der Anzeige und werden in diesem Browser gespeichert. Einträge mit derselben MAC verwenden denselben Namen. Ein leeres Feld verwendet den ursprünglichen Hostnamen.",
+  "A valid MAC address is required to set a custom hostname.": "Für diesen Client ist keine gültige MAC-Adresse verfügbar. Ein benutzerdefinierter Hostname kann nicht festgelegt werden.",
+  "Could not read or save custom hostnames. Check browser storage permissions and stored data.": "Benutzerdefinierte Hostnamen konnten nicht gelesen oder gespeichert werden. Prüfen Sie die Speicherberechtigungen und gespeicherten Daten.",
+  "Use up to 64 characters without line breaks or control characters.": "Bis zu 64 Zeichen ohne Zeilenumbrüche oder Steuerzeichen.",
+  "Restore server hostname": "Ursprünglichen Hostnamen wiederherstellen"
 }
