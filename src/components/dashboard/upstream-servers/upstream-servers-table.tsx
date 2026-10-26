@@ -256,6 +256,7 @@ function TableUpstreamServers(): React.JSX.Element {
         });
     },
     initialState: {
+      sorting: [{ id: 'avg_time', desc: false }],
       showGlobalFilter: true,
       columnVisibility,
       columnSizing,
