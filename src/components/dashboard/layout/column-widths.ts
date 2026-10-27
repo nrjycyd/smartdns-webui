@@ -11,7 +11,14 @@ export const COPY_BUTTON_INLINE_PADDING = 4;
 export type TableColumnLayout = 'query-log' | 'upstream-servers' | 'clients';
 
 export function isCompactQueryLogColumn(id: string): boolean {
-  return id === 'is_cached' || id === 'query_time';
+  return id !== 'domain';
+}
+
+// Body padding is added once; header measurements already include their padding.
+export function queryLogContentWidth(id: string, textWidth: number, padding: number, copyPadding: number): number {
+  const decoration = id === 'domain_group' ? 24 : id === 'is_cached' || id === 'is_blocked' ? 16 : 0;
+  const copy = id === 'client' || id === 'mrt-row-actions' ? 0 : copyPadding;
+  return Math.ceil(textWidth + decoration + padding + copy + 4);
 }
 
 export function createColumnWidthTarget(layout: TableColumnLayout, id: string, min: number, preferred: number, max?: number): ColumnWidthTarget {

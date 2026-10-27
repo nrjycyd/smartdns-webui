@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { COPY_BUTTON_INLINE_PADDING, createColumnWidthTarget, fitColumnWidths, isCompactQueryLogColumn, measureColumnContent, singleLineCellSx, singleLineCopySx, singleLineHeaderSx } from './column-widths';
+import { COPY_BUTTON_INLINE_PADDING, createColumnWidthTarget, fitColumnWidths, isCompactQueryLogColumn, measureColumnContent, queryLogContentWidth, singleLineCellSx, singleLineCopySx, singleLineHeaderSx } from './column-widths';
 import type { TableColumnLayout } from './column-widths';
 import { useTableWidth } from './table-width-provider';
 import type { TableDensity } from './table-density-provider';
@@ -63,7 +63,9 @@ export function useAdaptiveColumns<T extends object>({ layout: pageLayout, colum
       if (id === 'domain_type') content = Math.max(content, measure('AAAA'), measure('HTTPS'));
       if (id === 'ping_time') content = Math.max(content, measure('999.9 ms'));
       let floor = Math.max(80, Math.min(300, Math.ceil(content + contentAllowance)));
-      switch (id) {
+      if (pageLayout === 'query-log' && id !== 'domain') {
+        floor = queryLogContentWidth(id, content, cellPadding, measurement.copyPadding);
+      } else switch (id) {
         case 'domain': { floor = pageLayout === 'query-log' ? 180 : Math.max(180, Math.min(360, Math.ceil(content + padding + 8))); break;
         }
         case 'host':
@@ -77,9 +79,7 @@ export function useAdaptiveColumns<T extends object>({ layout: pageLayout, colum
         }
         default: {
           if (/timestamp/.test(id)) {
-            const timeReserve = pageLayout === 'query-log' ? measurement.rem : 0;
-            const timeMinimum = pageLayout === 'query-log' ? 220 * measurement.rem / 16 : 170;
-            floor = Math.max(timeMinimum, Math.ceil(content + contentAllowance + timeReserve));
+            floor = Math.max(170, Math.ceil(content + contentAllowance));
           }
           else if (/^ip$|^client$|_ip$/.test(id)) {
             const limit = pageLayout === 'query-log' && referenceText?.[id] ? Number.POSITIVE_INFINITY : pageLayout === 'query-log' ? 220 : pageLayout === 'clients' ? 440 : 320;
@@ -93,7 +93,9 @@ export function useAdaptiveColumns<T extends object>({ layout: pageLayout, colum
       const min = Math.ceil(Math.max(column.minSize ?? 0, floor, measurement.headers[column.header] ?? (measure(column.header, true) + cellPadding + controls)));
       return [createColumnWidthTarget(pageLayout, id, min, pageLayout === 'query-log' && id === 'domain' ? 360 : content + contentAllowance + 16, column.maxSize)];
     });
-    const actionWidth = density === 'compact' ? 72 : 90;
+    const actionWidth = pageLayout === 'query-log'
+      ? Math.ceil(Math.max(40 + padding / 2, measurement.headers['mrt-row-actions'] ?? 0))
+      : density === 'compact' ? 72 : 90;
     if (actions && visibility['mrt-row-actions'] !== false) targets.push({ id: 'mrt-row-actions', min: actionWidth, max: actionWidth, preferred: actionWidth, weight: 0 });
     const preferred = targets.reduce((sum, column) => sum + Math.min(column.max, column.preferred), 0);
     const hiddenColumn = optionalColumn && targets.some((column) => column.id === optionalColumn) && preferred > measurement.width ? optionalColumn : undefined;
@@ -118,7 +120,7 @@ export function useAdaptiveColumns<T extends object>({ layout: pageLayout, colum
       const copyPadding = copyButton ? (Number.parseFloat(style.paddingLeft) || 0) + (Number.parseFloat(style.paddingRight) || 0) : window.isSecureContext ? COPY_BUTTON_INLINE_PADDING * 2 : 0;
       const context = document.createElement('canvas').getContext('2d');
       const headers: Record<string, number> = {};
-      for (const th of element.querySelectorAll('thead th')) {
+      for (const th of element.querySelectorAll<HTMLTableCellElement>('thead th')) {
         const wrapper = th.querySelector('.Mui-TableHeadCell-Content-Wrapper');
         if (!wrapper?.textContent || !context) continue;
         const headerStyle = getComputedStyle(wrapper);
@@ -129,6 +131,7 @@ export function useAdaptiveColumns<T extends object>({ layout: pageLayout, colum
         const controls = [...(wrapper.parentElement?.children ?? [])].filter((child) => child !== wrapper).reduce((sum, child) => sum + outerWidth(child), 0);
         const actions = th.querySelector('.Mui-TableHeadCell-Content-Actions');
         headers[title] = Math.ceil(context.measureText(title).width + Math.max(0, title.length - 1) * spacing + controls + (actions ? outerWidth(actions) : 0) + (Number.parseFloat(cellStyle.paddingLeft) || 0) + (Number.parseFloat(cellStyle.paddingRight) || 0) + 8);
+        if (th.dataset.widthColumn === 'mrt-row-actions') headers['mrt-row-actions'] = headers[title];
       }
       setMeasurement((previous) => {
         // Clipped or temporarily hidden controls must not shrink a measured header.

@@ -561,7 +561,7 @@ function TableQueryLogs(): React.JSX.Element {
     muiTableContainerProps: { ref: widths.containerRef },
     muiTableBodyCellProps: ({ row, cell }) => ({ sx: isCompactQueryLogColumn(cell.column.id) ? { ...widths.cellSx, ...compactCellSx } : widths.cellSx, title: widthText(row.original, cell.column.id) }),
     muiCopyButtonProps: { sx: widths.copySx },
-    muiTableHeadCellProps: ({ column }) => ({ sx: isCompactQueryLogColumn(column.id) ? { ...widths.headerSx, ...compactCellSx } : widths.headerSx }),
+    muiTableHeadCellProps: ({ column }) => ({ 'data-width-column': column.id, sx: isCompactQueryLogColumn(column.id) ? { ...widths.headerSx, ...compactCellSx } : widths.headerSx }),
     enableSorting: false,
     enableColumnOrdering: true,
     enableRowActions: true,
