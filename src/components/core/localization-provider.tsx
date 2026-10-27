@@ -1,7 +1,8 @@
 'use client';
 
 import * as React from 'react';
-import { AdapterLuxon } from '@mui/x-date-pickers/AdapterLuxon';
+import { AdapterMoment } from '@mui/x-date-pickers/AdapterMoment';
+import { moment } from '@/lib/display-time';
 import { LocalizationProvider as Provider } from '@mui/x-date-pickers/LocalizationProvider';
 
 export interface LocalizationProviderProps {
@@ -9,5 +10,5 @@ export interface LocalizationProviderProps {
 }
 
 export function LocalizationProvider({ children }: LocalizationProviderProps): React.JSX.Element {
-  return <Provider dateAdapter={AdapterLuxon}>{children}</Provider>;
+  return <Provider dateAdapter={AdapterMoment} dateLibInstance={moment}>{children}</Provider>;
 }

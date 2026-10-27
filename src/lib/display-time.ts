@@ -1,15 +1,15 @@
-import { DateTime } from 'luxon';
+import moment from 'moment-timezone';
 
-export { DateTime } from 'luxon';
+export { default as moment } from 'moment-timezone';
 export const DEFAULT_TIME_ZONE = 'Asia/Shanghai';
 export const TIME_SETTINGS_KEY = 'smartdns-webui:time-display:v1';
-export const DATE_TIME_FORMAT = 'yyyy-MM-dd HH:mm:ss';
+export const DATE_TIME_FORMAT = 'YYYY-MM-DD HH:mm:ss';
 export interface TimeSettings { timeZone: string; statisticsTimeZone: string }
 export const DEFAULT_TIME_SETTINGS: TimeSettings = { timeZone: DEFAULT_TIME_ZONE, statisticsTimeZone: DEFAULT_TIME_ZONE };
 
 export function validTimeZone(value: unknown): value is string {
   if (typeof value !== 'string' || !value || ['system', 'default'].includes(value)) return false;
-  try { new Intl.DateTimeFormat('en', { timeZone: value }).format(0); return true; } catch { return false; }
+  return moment.tz.zone(value) !== null;
 }
 
 export function parseTimeSettings(raw: string | null): TimeSettings {
@@ -24,23 +24,20 @@ export function parseTimeSettings(raw: string | null): TimeSettings {
 
 // Numeric API timestamps are milliseconds. Offset-bearing strings preserve the
 // same instant; timezone-less chart buckets require their explicit source zone.
-export function statisticsTime(value: string, sourceZone: string): DateTime {
-  const options = { zone: sourceZone };
-  const iso = DateTime.fromISO(value, options);
-  return iso.isValid ? iso : DateTime.fromSQL(value, options);
+export function statisticsTime(value: string, sourceZone: string): moment.Moment {
+  return moment.tz(value, moment.ISO_8601, true, sourceZone);
 }
 
 export function nextStatisticsDay(value: string, sourceZone: string): number {
-  return statisticsTime(value, sourceZone).setZone(sourceZone).plus({ days: 1 }).startOf('day').toMillis();
+  return statisticsTime(value, sourceZone).add(1, 'day').startOf('day').valueOf();
 }
 
 export function formatDisplayTime(value: number | string | Date, timeZone: string, format = DATE_TIME_FORMAT): string {
   try {
-    // Use explicit IANA zones throughout. Native Date.toLocaleString() can be
-    // overridden by timezone extensions, even when passed an explicit zone.
-    const parsed = typeof value === 'number' ? DateTime.fromMillis(value, { zone: timeZone })
-      : typeof value === 'string' ? statisticsTime(value, timeZone) : DateTime.fromJSDate(value, { zone: timeZone });
-    return parsed.isValid ? parsed.setZone(timeZone).toFormat(format, { locale: 'en', numberingSystem: 'latn' }) : '—';
+    // Use bundled IANA rules: Change Timezone overrides even explicitly supplied
+    // Intl.DateTimeFormat zones. Numeric API timestamps must keep their instant.
+    const parsed = typeof value === 'string' ? statisticsTime(value, timeZone) : moment.utc(value).tz(timeZone);
+    return parsed.isValid() ? parsed.locale('en').format(format) : '—';
   } catch { return '—'; }
 }
 
@@ -48,7 +45,7 @@ export function formatDisplayTime(value: number | string | Date, timeZone: strin
 // their wall-clock text again using the browser's timezone.
 export function filterTimestamp(value: unknown): number | undefined {
   if (value === null || value === undefined || value === '') return undefined;
-  const parsed = DateTime.isDateTime(value) ? value : typeof value === 'number' ? DateTime.fromMillis(value, { zone: 'UTC' })
-    : typeof value === 'string' && /(?:Z|[+-]\d{2}:?\d{2})$/i.test(value) ? DateTime.fromISO(value, { zone: 'UTC' }) : undefined;
-  return parsed?.isValid ? parsed.toMillis() : undefined;
+  const parsed = moment.isMoment(value) ? value : typeof value === 'number' ? moment.utc(value)
+    : typeof value === 'string' && /(?:Z|[+-]\d{2}:?\d{2})$/i.test(value) ? moment.parseZone(value, moment.ISO_8601, true) : undefined;
+  return parsed?.isValid() ? parsed.valueOf() : undefined;
 }

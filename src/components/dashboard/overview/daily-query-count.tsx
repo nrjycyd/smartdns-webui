@@ -127,7 +127,7 @@ function DailyQueryCountTable({ queryCount, setTitle, setTitleAction }: DailyQue
       ref={myChartRef}
       data={{
         labels: queryCount.daily_query_count.map((data) => {
-          return formatTime(statisticsTime(data.day, statisticsTimeZone).valueOf(), 'MM-dd');
+          return formatTime(statisticsTime(data.day, statisticsTimeZone).valueOf(), 'MM-DD');
         }),
         datasets: [
           {
