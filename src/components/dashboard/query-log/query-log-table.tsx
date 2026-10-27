@@ -106,7 +106,7 @@ function TableQueryLogs(): React.JSX.Element {
                   verticalAlign: 'middle',
                   boxSizing: 'border-box',
                   '&&': { minWidth: '22px' },
-                  height: '20px',
+                  height: '18px',
                   maxWidth: '100%',
                   textAlign: 'center',
                   fontFamily: '"Roboto Mono", ui-monospace, SFMono-Regular, Consolas, monospace',
