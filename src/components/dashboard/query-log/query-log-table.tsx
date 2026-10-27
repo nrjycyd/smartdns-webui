@@ -20,7 +20,7 @@ import {
 import { Box, Card, IconButton, Tooltip, Chip } from '@mui/material';
 import { createTheme, useColorScheme } from '@mui/material/styles';
 import RefreshIcon from '@mui/icons-material/Refresh';
-import { dayjs, filterTimestamp } from '@/lib/display-time';
+import { DateTime, filterTimestamp } from '@/lib/display-time';
 import { useTimeDisplay } from '../layout/time-display-provider';
 import {
   QueryClient,
@@ -294,12 +294,12 @@ function TableQueryLogs(): React.JSX.Element {
     const searchParams = new URLSearchParams(search);
     const filters: MRTColumnFiltersState = [];
 
-    const timestamp: (dayjs.Dayjs | undefined)[] = [undefined, undefined];
+    const timestamp: (DateTime | undefined)[] = [undefined, undefined];
     let existTimestamp = false;
     for (const [key, value] of searchParams.entries()) {
       if (key === 'timestamp_after') {
-        const v = dayjs(Number(value));
-        if (v.isValid()) {
+        const v = DateTime.fromMillis(Number(value), { zone: 'UTC' });
+        if (v.isValid) {
           timestamp[0] = v;
           existTimestamp = true;
         }
@@ -308,8 +308,8 @@ function TableQueryLogs(): React.JSX.Element {
       }
 
       if (key === 'timestamp_before') {
-        const v = dayjs(Number(value));
-        if (v.isValid()) {
+        const v = DateTime.fromMillis(Number(value), { zone: 'UTC' });
+        if (v.isValid) {
           timestamp[1] = v;
           existTimestamp = true;
         }
@@ -620,7 +620,7 @@ function TableQueryLogs(): React.JSX.Element {
     muiFilterDateTimePickerProps: {
       ampm: false,
       timezone: timeZone,
-      format: 'YYYY-MM-DD HH:mm',
+      format: 'yyyy-MM-dd HH:mm',
     },
     muiPaginationProps: {
       disabled: isRefetching,

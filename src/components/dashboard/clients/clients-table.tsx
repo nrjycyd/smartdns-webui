@@ -20,7 +20,7 @@ import {
 import { Card, IconButton, Tooltip } from '@mui/material';
 import { createTheme, useColorScheme } from '@mui/material/styles';
 import RefreshIcon from '@mui/icons-material/Refresh';
-import { dayjs, filterTimestamp } from '@/lib/display-time';
+import { DateTime, filterTimestamp } from '@/lib/display-time';
 import { useTimeDisplay } from '../layout/time-display-provider';
 import {
   QueryClient,
@@ -149,12 +149,12 @@ function TableClients(): React.JSX.Element {
   React.useEffect(() => {
     const searchParams = new URLSearchParams(search);
     const filters: MRTColumnFiltersState = [];
-    const timestamp: (dayjs.Dayjs | undefined)[] = [undefined, undefined];
+    const timestamp: (DateTime | undefined)[] = [undefined, undefined];
 
     for (const [key, value] of searchParams.entries()) {
       if (key === 'timestamp_after' || key === 'timestamp_before') {
-        const parsed = dayjs(Number(value));
-        if (parsed.isValid()) timestamp[key === 'timestamp_after' ? 0 : 1] = parsed;
+        const parsed = DateTime.fromMillis(Number(value), { zone: 'UTC' });
+        if (parsed.isValid) timestamp[key === 'timestamp_after' ? 0 : 1] = parsed;
         continue;
       }
       if (key === 'last_query_timestamp') continue;
@@ -372,7 +372,7 @@ function TableClients(): React.JSX.Element {
     muiFilterDateTimePickerProps: {
       ampm: false,
       timezone: timeZone,
-      format: 'YYYY-MM-DD HH:mm',
+      format: 'yyyy-MM-dd HH:mm',
     },
     muiPaginationProps: {
       disabled: isRefetching,
