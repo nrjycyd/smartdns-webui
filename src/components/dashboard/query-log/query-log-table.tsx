@@ -96,7 +96,7 @@ function TableQueryLogs(): React.JSX.Element {
         Cell: ({ cell }) => {
           const type = cell.getValue<number>();
           const name = getDomainTypeName(type);
-          const tone = type === 1 || type === 28 ? ['#426b94', '#a0bfdc'] : type === 64 || type === 65 ? ['#806393', '#c6afd9'] : ['#687580', '#b1bec9'];
+          const tone = type === 1 || type === 28 ? ['#2563EB', '#93B8FF'] : type === 64 || type === 65 ? ['#BE2870', '#F3A0C6'] : ['#607080', '#B9C3CE'];
           return (
             <Tooltip title={`${name} · ${type}`} arrow placement="top">
               <Box component="span" sx={(theme) => ({
@@ -104,14 +104,15 @@ function TableQueryLogs(): React.JSX.Element {
                   verticalAlign: 'middle',
                   boxSizing: 'border-box',
                   width: '44px',
+                  height: '16px',
                   maxWidth: '100%',
                   textAlign: 'center',
                   fontSize: '10px',
                   fontWeight: 400,
-                  lineHeight: '13px',
+                  lineHeight: '14px',
                   letterSpacing: 'normal',
                   padding: '0 1px',
-                  border: '1px solid #ccd3da',
+                  border: '1px solid #CDD2D8',
                   borderRadius: '5px',
                   backgroundColor: 'transparent',
                   overflow: 'hidden',
@@ -120,7 +121,7 @@ function TableQueryLogs(): React.JSX.Element {
                   color: tone[0],
                   ...theme.applyStyles('dark', {
                     color: tone[1],
-                    borderColor: '#5d6b77',
+                    borderColor: '#59636F',
                   }),
               })}>{name}</Box>
             </Tooltip>
