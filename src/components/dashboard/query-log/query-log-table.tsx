@@ -18,7 +18,8 @@ import {
   type MRT_TableInstance as MRTTableInstance,
 } from 'material-react-table';
 import { Box, Card, IconButton, Tooltip, Chip } from '@mui/material';
-import { createTheme, useColorScheme } from '@mui/material/styles';
+import { alpha, createTheme, useColorScheme } from '@mui/material/styles';
+import { blue, purple, grey } from '@mui/material/colors';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import dayjs from 'dayjs';
 import {
@@ -95,9 +96,27 @@ function TableQueryLogs(): React.JSX.Element {
         columnFilterModeOptions: ['equals'],
         Cell: ({ cell }) => {
           const type = cell.getValue<number>();
+          const name = getDomainTypeName(type);
+          const tone = type === 1 || type === 28 ? blue : type === 64 || type === 65 ? purple : grey;
           return (
-            <Tooltip title={type} arrow placement="top">
-              <span>{getDomainTypeName(type)}</span>
+            <Tooltip title={`${name} · ${type}`} arrow placement="top">
+              <Box component="span" sx={(theme) => {
+                const background = alpha(tone[500], 0.1);
+                const darkBackground = alpha(tone[300], 0.15);
+                return {
+                  // Paint the label into existing cell spacing without changing
+                  // glyph metrics, intrinsic width, or the table's width budget.
+                  borderRadius: '3px',
+                  backgroundColor: background,
+                  boxShadow: `0 0 0 2px ${background}`,
+                  color: tone[800],
+                  ...theme.applyStyles('dark', {
+                    color: tone[200],
+                    backgroundColor: darkBackground,
+                    boxShadow: `0 0 0 2px ${darkBackground}`,
+                  }),
+                };
+              }}>{name}</Box>
             </Tooltip>
           );
         },
