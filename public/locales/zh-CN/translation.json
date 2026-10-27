@@ -227,5 +227,11 @@
     "Statistics source timezone": "统计数据原始时区",
     "Set this to the SmartDNS server timezone. Chart dates have no timezone; daily counts keep the server day boundaries.": "请设为 SmartDNS 服务器实际使用的时区。统计接口的日期不含时区，每日统计仍按服务器原有的日期边界划分。",
     "Uses YYYY-MM-DD HH:mm:ss and a 24-hour clock. Saved in this browser for this address; it does not synchronize the system clock.": "统一使用 YYYY-MM-DD HH:mm:ss 和 24 小时制。设置仅保存在当前浏览器的此地址下，不执行系统校时。",
-    "Server daily bucket": "服务器每日统计时区"
+    "Server daily bucket": "服务器每日统计时区",
+    "Stop loading": "停止加载",
+    "Refresh group trends": "刷新分组趋势",
+    "Load daily group trends": "加载每日分组趋势",
+    "Loading group trends": "正在加载分组趋势",
+    "Some group counts could not be loaded. Missing points are gaps, not zero.": "部分分组计数加载失败，缺失位置留空，不记为零。",
+    "Total": "总量"
 }

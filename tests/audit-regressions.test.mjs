@@ -17,6 +17,29 @@ async function load(file, globals = {}, dependencies = {}) {
 
 const json = (data, status = 200) => new Response(JSON.stringify(data), { status, headers: { 'Content-Type': 'application/json' } });
 
+test('query-log count requests propagate caller cancellation and keep filtered parameters', async () => {
+  let requestSignal, requestURL;
+  const { smartdnsServer } = await load('lib/backend/server.ts', {
+    fetch: (url, options) => {
+      requestSignal = options.signal;
+      requestURL = url;
+      return new Promise((_resolve, reject) => options.signal.addEventListener('abort', () => reject(new DOMException('Aborted', 'AbortError')), { once: true }));
+    },
+  });
+  const controller = new AbortController();
+  const response = smartdnsServer.GetQueryLogs({ domain_group: 'PROXY', page_num: 1, page_size: 1, timestamp_after: 1000, timestamp_before: 1999 }, controller.signal);
+  controller.abort();
+  const result = await response;
+  assert(requestSignal.aborted);
+  assert(result.error);
+  const params = new URL(requestURL, 'http://localhost').searchParams;
+  assert.equal(params.get('domain_group'), 'PROXY');
+  assert.equal(params.get('timestamp_after'), '1000');
+  assert.equal(params.get('timestamp_before'), '1999');
+  assert.equal(params.has('total_count'), false);
+  assert.equal(params.has('cursor'), false);
+});
+
 test('numeric zero and false query filters are preserved', async () => {
   let url;
   const { smartdnsServer } = await load('lib/backend/server.ts', { fetch: async (value) => { url = value; return json({}); } });
