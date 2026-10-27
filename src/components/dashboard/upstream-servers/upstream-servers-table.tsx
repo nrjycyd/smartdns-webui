@@ -20,6 +20,15 @@ import { MRT_Localization_EN } from 'material-react-table/locales/en';
 import { MRT_Localization_ZH_HANS } from 'material-react-table/locales/zh-Hans';
 import { type SnackbarOrigin, SnackbarProvider } from 'notistack';
 
+// DNS 延迟颜色分级：<10ms 深绿，10-20 浅绿，20-50 黄绿，50-100 黄，>100 红
+function getLatencyColor(ms: number): string {
+  if (ms < 10) return '#1b5e20';
+  if (ms < 20) return '#66bb6a';
+  if (ms < 50) return '#9ccc65';
+  if (ms <= 100) return '#fbc02d';
+  return '#d32f2f';
+}
+
 function TableUpstreamServers(): React.JSX.Element {
   const [density, previewDensity] = useTableDensityPreview();
   const { t, i18n } = useTranslation();
@@ -88,7 +97,7 @@ function TableUpstreamServers(): React.JSX.Element {
           if (avgTime < 0) {
             return <span>N/A</span>;
           }
-          return <span>{avgTime} ms</span>;
+          return <span style={{ color: getLatencyColor(avgTime), fontWeight: 600 }}>{avgTime} ms</span>;
         },
       },
       {
