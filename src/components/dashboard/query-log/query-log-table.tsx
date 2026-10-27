@@ -43,7 +43,7 @@ import { QUERY_CLIENT_ADDRESS_WIDTH_SAMPLES } from './client-address';
 import { GroupLabel, useGroupAppearance } from './group-label';
 import { useTableDensityPreview } from '@/components/dashboard/layout/table-density-provider';
 import { useAdaptiveColumns } from '@/components/dashboard/layout/use-adaptive-columns';
-import { singleLineCellSx, singleLineHeaderSx } from '@/components/dashboard/layout/column-widths';
+import { isCompactQueryLogColumn, singleLineCellSx, singleLineHeaderSx } from '@/components/dashboard/layout/column-widths';
 
 
 interface UserApiResponse {
@@ -130,7 +130,7 @@ function TableQueryLogs(): React.JSX.Element {
         filterVariant: 'datetime-range',
         columnFilterModeOptions: ['equals'],
         enableColumnActions: false,
-        size: 120,
+        size: 240,
       },
       {
         accessorKey: 'ping_time',
@@ -190,7 +190,7 @@ function TableQueryLogs(): React.JSX.Element {
       {
         accessorKey: 'is_cached',
         header: t('Cache Hit'),
-        size: 150,
+        size: 100,
         enableColumnFilter: false,
         enableColumnFilterModes: false,
         enableColumnActions: false,
@@ -208,6 +208,7 @@ function TableQueryLogs(): React.JSX.Element {
       {
         accessorKey: 'query_time',
         header: t('Query Time'),
+        size: 110,
         enableColumnFilter: false,
         enableColumnFilterModes: false,
         Cell: ({ cell }) => {
@@ -548,6 +549,7 @@ function TableQueryLogs(): React.JSX.Element {
     reply_code: ['4095'],
   }), [t]);
   const widths = useAdaptiveColumns({ layout: 'query-log', columns, data, visibility: columnVisibility, density, manualSizing: columnSizing, text: widthText, referenceText: widthReferences, actions: true, optionalColumn: 'reply_code' });
+  const compactCellSx = { px: density === 'compact' ? '0.25rem' : density === 'comfortable' ? '0.5rem' : '0.75rem' };
 
   const table = useMaterialReactTable({
     onDensityChange: previewDensity,
@@ -557,9 +559,9 @@ function TableQueryLogs(): React.JSX.Element {
     enableColumnResizing: !widths.automatic,
     layoutMode: 'grid-no-grow',
     muiTableContainerProps: { ref: widths.containerRef },
-    muiTableBodyCellProps: ({ row, cell }) => ({ sx: widths.cellSx, title: widthText(row.original, cell.column.id) }),
+    muiTableBodyCellProps: ({ row, cell }) => ({ sx: isCompactQueryLogColumn(cell.column.id) ? { ...widths.cellSx, ...compactCellSx } : widths.cellSx, title: widthText(row.original, cell.column.id) }),
     muiCopyButtonProps: { sx: widths.copySx },
-    muiTableHeadCellProps: { sx: widths.headerSx },
+    muiTableHeadCellProps: ({ column }) => ({ sx: isCompactQueryLogColumn(column.id) ? { ...widths.headerSx, ...compactCellSx } : widths.headerSx }),
     enableSorting: false,
     enableColumnOrdering: true,
     enableRowActions: true,

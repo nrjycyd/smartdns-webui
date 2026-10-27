@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { COPY_BUTTON_INLINE_PADDING, createColumnWidthTarget, fitColumnWidths, measureColumnContent, singleLineCellSx, singleLineCopySx, singleLineHeaderSx } from './column-widths';
+import { COPY_BUTTON_INLINE_PADDING, createColumnWidthTarget, fitColumnWidths, isCompactQueryLogColumn, measureColumnContent, singleLineCellSx, singleLineCopySx, singleLineHeaderSx } from './column-widths';
 import type { TableColumnLayout } from './column-widths';
 import { useTableWidth } from './table-width-provider';
 import type { TableDensity } from './table-density-provider';
@@ -53,10 +53,11 @@ export function useAdaptiveColumns<T extends object>({ layout: pageLayout, colum
       return context.measureText(sample).width + Math.max(0, sample.length - 1) * measurement.spacing;
     };
     const padding = measurement.rem * (density === 'compact' ? 1 : density === 'comfortable' ? 2 : 3);
-    const contentAllowance = padding + measurement.copyPadding + 4;
     const targets = columns.flatMap((column) => {
       const id = column.id ?? column.accessorKey;
       if (!id || visibility[id] === false) return [];
+      const cellPadding = pageLayout === 'query-log' && isCompactQueryLogColumn(id) ? padding / 2 : padding;
+      const contentAllowance = cellPadding + measurement.copyPadding + 4;
       const samples = referenceText?.[id] ?? data.slice(0, 80).map((row) => text ? text(row, id) : String(row[id as keyof T] ?? ''));
       let content = measureColumnContent(id, samples, measure, pageLayout !== 'query-log' || referenceText?.[id] !== undefined);
       if (id === 'domain_type') content = Math.max(content, measure('AAAA'), measure('HTTPS'));
@@ -75,7 +76,11 @@ export function useAdaptiveColumns<T extends object>({ layout: pageLayout, colum
         case 'is_cached': { floor = Math.max(56, Math.ceil(content + contentAllowance + 16)); break;
         }
         default: {
-          if (/timestamp/.test(id)) floor = Math.max(170, Math.ceil(content + contentAllowance));
+          if (/timestamp/.test(id)) {
+            const timeReserve = pageLayout === 'query-log' ? measurement.rem : 0;
+            const timeMinimum = pageLayout === 'query-log' ? 220 * measurement.rem / 16 : 170;
+            floor = Math.max(timeMinimum, Math.ceil(content + contentAllowance + timeReserve));
+          }
           else if (/^ip$|^client$|_ip$/.test(id)) {
             const limit = pageLayout === 'query-log' && referenceText?.[id] ? Number.POSITIVE_INFINITY : pageLayout === 'query-log' ? 220 : pageLayout === 'clients' ? 440 : 320;
             const compactClient = pageLayout === 'query-log' && id === 'client';
@@ -85,7 +90,7 @@ export function useAdaptiveColumns<T extends object>({ layout: pageLayout, colum
         }
       }
       const controls = (filtering && column.enableColumnFilter !== false ? 20 : 0) + (sorting && column.enableSorting !== false ? 20 : 0) + (columnActions && column.enableColumnActions !== false ? 24 : 0);
-      const min = Math.ceil(Math.max(column.minSize ?? 0, floor, measurement.headers[column.header] ?? (measure(column.header, true) + padding + controls)));
+      const min = Math.ceil(Math.max(column.minSize ?? 0, floor, measurement.headers[column.header] ?? (measure(column.header, true) + cellPadding + controls)));
       return [createColumnWidthTarget(pageLayout, id, min, pageLayout === 'query-log' && id === 'domain' ? 360 : content + contentAllowance + 16, column.maxSize)];
     });
     const actionWidth = density === 'compact' ? 72 : 90;

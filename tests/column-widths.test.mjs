@@ -77,6 +77,23 @@ test('IPv4 values and colon-containing non-IP content still participate in sizin
   assert.equal(measureColumnContent('ip', ['proxy:53'], measure), 8);
 });
 
+test('timestamp reference samples cover fonts whose widest digit is not eight', () => {
+  for (const widest of ['0', '1', '2', '9']) {
+    const measure = (value) => [...value].reduce((width, digit) => width + (digit === widest ? 12 : 6), 0);
+    const width = measureColumnContent('timestamp', ['8888/11/28 23:59:59'], measure);
+    for (const sample of ['2026/10/26 21:42:59', '2026/12/29 22:22:22', '2000/10/20 10:00:00']) {
+      assert(width >= measure(sample), `${sample} must fit when ${widest} is the widest digit`);
+    }
+  }
+});
+
+test('timestamp digit reserves retain locale punctuation and do not change other column samples', () => {
+  const measure = (value) => [...value].reduce((width, digit) => width + (digit === '2' ? 10 : 5), 0);
+  const sample = '11/28/8888, 11:59:59 PM';
+  assert(measureColumnContent('timestamp', [sample], measure) >= measure('12/22/2026, 12:22:22 PM'));
+  assert.equal(measureColumnContent('query_time', ['9999.9 ms'], measure), measure('9999.9 ms'));
+});
+
 
 test('extra space goes to long fields while short fields keep their content widths', () => {
   const compact = [

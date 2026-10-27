@@ -10,6 +10,10 @@ export const COPY_BUTTON_INLINE_PADDING = 4;
 
 export type TableColumnLayout = 'query-log' | 'upstream-servers' | 'clients';
 
+export function isCompactQueryLogColumn(id: string): boolean {
+  return id === 'is_cached' || id === 'query_time';
+}
+
 export function createColumnWidthTarget(layout: TableColumnLayout, id: string, min: number, preferred: number, max?: number): ColumnWidthTarget {
   let limit = min;
   let weight = 0;
@@ -50,10 +54,15 @@ function isIpv6Address(value: string): boolean {
 
 export function measureColumnContent(id: string, values: readonly string[], measure: (value: string) => number, includeIpv6 = false): number {
   const ipColumn = /^ip$|^client$|_ip$/.test(id);
+  // A fixed date sample is only safe if every digit is as wide as the font's widest.
+  // Proportional digits can otherwise clip some seconds while adjacent rows fit.
+  const widestDigit = id === 'timestamp'
+    ? [...'0123456789'].reduce((widest, digit) => measure(digit) > measure(widest) ? digit : widest)
+    : undefined;
   let width = 0;
   for (const value of values) {
     if (ipColumn && !includeIpv6 && isIpv6Address(value)) continue;
-    width = Math.max(width, measure(value));
+    width = Math.max(width, measure(widestDigit ? value.replaceAll(/\d/g, widestDigit) : value));
   }
   return width;
 }
