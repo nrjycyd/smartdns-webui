@@ -15,6 +15,8 @@ import { Line } from 'react-chartjs-2';
 import annotationPlugin from 'chartjs-plugin-annotation';
 import { paths } from '@/paths';
 import { useRouter } from 'next/navigation';
+import { statisticsTime } from '@/lib/display-time';
+import { useTimeDisplay } from '../layout/time-display-provider';
 
 Chart.register(...registerables);
 Chart.register(annotationPlugin);
@@ -27,6 +29,7 @@ export interface HourlyQueryCountProps {
 }
 
 function HourlyQueryCountTable({ queryCount, setTitle, setTitleAction }: HourlyQueryCountProps): React.JSX.Element {
+  const { timeZone, statisticsTimeZone, formatTime } = useTimeDisplay();
   const { t } = useTranslation();
   const router = useRouter();
   const theme = useTheme();
@@ -67,8 +70,8 @@ function HourlyQueryCountTable({ queryCount, setTitle, setTitleAction }: HourlyQ
           const endDate = queryCountList[start].hour;
           const startDate = queryCountList[end].hour;
 
-          const startTimestamp = new Date(startDate).getTime();
-          let endTimestamp = new Date(endDate).getTime();
+          const startTimestamp = statisticsTime(startDate, statisticsTimeZone).valueOf();
+          let endTimestamp = statisticsTime(endDate, statisticsTimeZone).valueOf();
 
           let totalCount = 0;
           for (let i = end; i > start; i--) {
@@ -95,7 +98,7 @@ function HourlyQueryCountTable({ queryCount, setTitle, setTitleAction }: HourlyQ
         <FindInPageOutlined />
       </IconButton>
     );
-  }, [setTitle, setTitleAction, selectedRange, router, queryCount]);
+  }, [setTitle, setTitleAction, selectedRange, router, queryCount, statisticsTimeZone]);
 
   const handleClick = (event: ChartEvent, _elements: ActiveElement[], chart: Chart): void => {
     const xScale = chart.scales['x'];
@@ -124,10 +127,7 @@ function HourlyQueryCountTable({ queryCount, setTitle, setTitleAction }: HourlyQ
       ref={myChartRef}
       data={{
         labels: queryCount.hourly_query_count.map((data) => {
-          const date = new Date(data.hour);
-          const hours = date.getHours().toString().padStart(2, '0');
-          const minutes = date.getMinutes().toString().padStart(2, '0');
-          return `${hours}:${minutes}`;
+          return formatTime(statisticsTime(data.hour, statisticsTimeZone).valueOf(), 'HH:mm');
         }),
         datasets: [
           {
@@ -175,6 +175,13 @@ function HourlyQueryCountTable({ queryCount, setTitle, setTitleAction }: HourlyQ
           },
           tooltip: {
             displayColors: false,
+            callbacks: {
+              title: (items) => {
+                if (items.length === 0) return '';
+                const bucket = queryCount.hourly_query_count[items[0].dataIndex];
+                return bucket ? `${formatTime(statisticsTime(bucket.hour, statisticsTimeZone).valueOf())} · ${timeZone}` : '';
+              },
+            },
           },
         },
         maintainAspectRatio: false,

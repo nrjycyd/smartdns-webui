@@ -7,8 +7,9 @@ import { TableDensityProvider } from './table-density-provider';
 import { ClientIdentityProvider } from '@/components/dashboard/clients/client-identity-provider';
 import { ClientNamesProvider } from '@/components/dashboard/clients/client-names-provider';
 import { TableWidthProvider } from './table-width-provider';
+import { TimeDisplayProvider } from './time-display-provider';
 
 export function DashboardPreferencesProvider({ children }: { children: React.ReactNode }): React.JSX.Element {
   const [client] = React.useState(() => new QueryClient({ defaultOptions: { queries: { retry: false, refetchOnWindowFocus: false } } }));
-  return <QueryClientProvider client={client}><TableDensityProvider><TableWidthProvider><ClientNamesProvider><ClientIdentityProvider><GroupAppearanceProvider>{children}</GroupAppearanceProvider></ClientIdentityProvider></ClientNamesProvider></TableWidthProvider></TableDensityProvider></QueryClientProvider>;
+  return <QueryClientProvider client={client}><TimeDisplayProvider><TableDensityProvider><TableWidthProvider><ClientNamesProvider><ClientIdentityProvider><GroupAppearanceProvider>{children}</GroupAppearanceProvider></ClientIdentityProvider></ClientNamesProvider></TableWidthProvider></TableDensityProvider></TimeDisplayProvider></QueryClientProvider>;
 }

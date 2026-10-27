@@ -11,6 +11,7 @@ import { useSnackbar } from 'notistack';
 import { t } from 'i18next';
 import { smartdnsServer } from '@/lib/backend/server';
 import type { CachedDomainInfo } from '@/lib/backend/server';
+import { useTimeDisplay } from '../layout/time-display-provider';
 
 interface CachedDomainsDialogProps {
     open: boolean;
@@ -18,6 +19,7 @@ interface CachedDomainsDialogProps {
 }
 
 export const CachedDomainsDialog = React.memo(function CachedDomainsDialog({ open, onClose }: CachedDomainsDialogProps): React.JSX.Element {
+    const { formatTime } = useTimeDisplay();
     const { enqueueSnackbar } = useSnackbar();
     const [domainList, setDomainList] = React.useState<CachedDomainInfo[]>([]);
     const [loading, setLoading] = React.useState(false);
@@ -189,7 +191,7 @@ export const CachedDomainsDialog = React.memo(function CachedDomainsDialog({ ope
                                         </Tooltip>
                                         <TableCell sx={{ width: '10%', whiteSpace: 'nowrap' }}>{item.qtype}</TableCell>
                                         <TableCell sx={{ width: '20%', whiteSpace: 'nowrap' }}>
-                                            {new Date(item.cached_time * 1000).toLocaleString()}
+                                            {formatTime(item.cached_time * 1000)}
                                         </TableCell>
                                         <TableCell sx={{ width: '14%', whiteSpace: 'nowrap' }}>{item.ttl_remaining}</TableCell>
                                     </TableRow>

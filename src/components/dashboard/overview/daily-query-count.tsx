@@ -15,6 +15,8 @@ import { Line } from 'react-chartjs-2';
 import annotationPlugin from 'chartjs-plugin-annotation';
 import { paths } from '@/paths';
 import { useRouter } from 'next/navigation';
+import { nextStatisticsDay, statisticsTime } from '@/lib/display-time';
+import { useTimeDisplay } from '../layout/time-display-provider';
 
 Chart.register(...registerables);
 Chart.register(annotationPlugin);
@@ -27,6 +29,7 @@ export interface DailyQueryCountProps {
 }
 
 function DailyQueryCountTable({ queryCount, setTitle, setTitleAction }: DailyQueryCountProps): React.JSX.Element {
+  const { timeZone, statisticsTimeZone, formatTime } = useTimeDisplay();
   const { t } = useTranslation();
   const router = useRouter();
   const theme = useTheme();
@@ -66,8 +69,8 @@ function DailyQueryCountTable({ queryCount, setTitle, setTitleAction }: DailyQue
           const startDate = queryCountList[end].day;
           
 
-          const startTimestamp = new Date(`${startDate} 00:00:00`).getTime();
-          let endTimestamp = new Date(`${endDate} 00:00:00`).getTime();
+          const startTimestamp = statisticsTime(startDate, statisticsTimeZone).valueOf();
+          let endTimestamp = statisticsTime(endDate, statisticsTimeZone).valueOf();
 
           let totalCount = 0;
           for (let i = end; i > start; i--) {
@@ -80,7 +83,7 @@ function DailyQueryCountTable({ queryCount, setTitle, setTitleAction }: DailyQue
           }
 
           if (includeNextRange) {
-            endTimestamp += 86400000;
+            endTimestamp = nextStatisticsDay(endDate, statisticsTimeZone);
           }
 
           if (endTimestamp > queryTimestamp) {
@@ -95,7 +98,7 @@ function DailyQueryCountTable({ queryCount, setTitle, setTitleAction }: DailyQue
         <FindInPageOutlined />
       </IconButton>
     );
-  }, [setTitle, setTitleAction, selectedRange, router, queryCount]);
+  }, [setTitle, setTitleAction, selectedRange, router, queryCount, statisticsTimeZone]);
 
   const handleClick = (event: ChartEvent, _elements: ActiveElement[], chart: Chart): void => {
     const xScale = chart.scales['x'];
@@ -124,10 +127,7 @@ function DailyQueryCountTable({ queryCount, setTitle, setTitleAction }: DailyQue
       ref={myChartRef}
       data={{
         labels: queryCount.daily_query_count.map((data) => {
-          const date = new Date(data.day);
-          const moth = (date.getMonth() + 1).toString().padStart(2, '0');
-          const monthDate = date.getDate().toString().padStart(2, '0');
-          return `${moth}-${monthDate}`;
+          return formatTime(statisticsTime(data.day, statisticsTimeZone).valueOf(), 'MM-DD');
         }),
         datasets: [
           {
@@ -174,6 +174,16 @@ function DailyQueryCountTable({ queryCount, setTitle, setTitleAction }: DailyQue
           },
           tooltip: {
             displayColors: false,
+            callbacks: {
+              title: (items) => {
+                if (items.length === 0) return '';
+                const bucket = queryCount.daily_query_count[items[0].dataIndex];
+                return bucket ? [
+                  `${formatTime(statisticsTime(bucket.day, statisticsTimeZone).valueOf())} — ${formatTime(nextStatisticsDay(bucket.day, statisticsTimeZone))}`,
+                  `${timeZone} · ${t('Server daily bucket')}: ${statisticsTimeZone}`,
+                ] : '';
+              },
+            },
           },
         },
         maintainAspectRatio: false,

@@ -20,7 +20,8 @@ import {
 import { Card, IconButton, Tooltip } from '@mui/material';
 import { createTheme, useColorScheme } from '@mui/material/styles';
 import RefreshIcon from '@mui/icons-material/Refresh';
-import dayjs from 'dayjs';
+import { dayjs, filterTimestamp } from '@/lib/display-time';
+import { useTimeDisplay } from '../layout/time-display-provider';
 import {
   QueryClient,
   QueryClientProvider,
@@ -55,6 +56,7 @@ interface UserApiResponse {
 const FILTER_COLUMNS = new Set(['id', 'client_ip', 'mac', 'hostname']);
 
 function TableClients(): React.JSX.Element {
+  const { timeZone, formatTime } = useTimeDisplay();
   const { names: clientNames } = useClientNames();
   const [editingClient, setEditingClient] = useState<ClientList | null>(null);
   const [density, previewDensity] = useTableDensityPreview();
@@ -109,7 +111,7 @@ function TableClients(): React.JSX.Element {
         filterVariant: 'datetime-range',
         Cell: ({ cell }) => {
           const timestamp = cell.getValue<string>();
-          const localTime = new Date(timestamp).toLocaleString();
+          const localTime = formatTime(timestamp);
           return <span>{localTime}</span>;
         },
         columnFilterModeOptions: ['equals'],
@@ -117,7 +119,7 @@ function TableClients(): React.JSX.Element {
         size: 120,
       },
     ],
-    [t],
+    [t, formatTime],
   );
 
   const { checkSessionError } = useUser();
@@ -212,11 +214,11 @@ function TableClients(): React.JSX.Element {
           const timerange = filter.value;
           if (Array.isArray(timerange) && timerange.length === 2) {
             if (timerange[0]) {
-              queryParam['timestamp_after'] = new Date(timerange[0]).getTime();
+              queryParam['timestamp_after'] = filterTimestamp(timerange[0]);
             }
 
             if (timerange[1]) {
-              queryParam['timestamp_before'] = new Date(timerange[1]).getTime();
+              queryParam['timestamp_before'] = filterTimestamp(timerange[1]);
             }
           }
           continue;
@@ -337,9 +339,9 @@ function TableClients(): React.JSX.Element {
 
   const widthText = React.useCallback((row: ClientList, id: string) => {
     if (id === 'hostname') return getClientName(clientNames, row.mac) || row.hostname || '—';
-    if (id === 'last_query_timestamp') return new Date(row.last_query_timestamp).toLocaleString();
+    if (id === 'last_query_timestamp') return formatTime(row.last_query_timestamp);
     return String(row[id as keyof ClientList] ?? '');
-  }, [clientNames]);
+  }, [clientNames, formatTime]);
   const widths = useAdaptiveColumns({ layout: 'clients', columns, data, visibility: columnVisibility, density, manualSizing: columnSizing, text: widthText, actions: true });
 
   const table = useMaterialReactTable({
@@ -369,6 +371,8 @@ function TableClients(): React.JSX.Element {
     manualSorting: true,
     muiFilterDateTimePickerProps: {
       ampm: false,
+      timezone: timeZone,
+      format: 'YYYY-MM-DD HH:mm',
     },
     muiPaginationProps: {
       disabled: isRefetching,

@@ -20,7 +20,8 @@ import {
 import { Box, Card, IconButton, Tooltip, Chip } from '@mui/material';
 import { createTheme, useColorScheme } from '@mui/material/styles';
 import RefreshIcon from '@mui/icons-material/Refresh';
-import dayjs from 'dayjs';
+import { dayjs, filterTimestamp } from '@/lib/display-time';
+import { useTimeDisplay } from '../layout/time-display-provider';
 import {
   QueryClient,
   QueryClientProvider,
@@ -56,6 +57,7 @@ interface UserApiResponse {
 const FILTER_COLUMNS = new Set(['id', 'domain', 'domain_type', 'client', 'domain_group', 'is_blocked', 'reply_code']);
 
 function TableQueryLogs(): React.JSX.Element {
+  const { timeZone, formatTime } = useTimeDisplay();
   const [density, previewDensity] = useTableDensityPreview();
   const { t, i18n } = useTranslation();
   const search = useSearchParams().toString();
@@ -152,7 +154,7 @@ function TableQueryLogs(): React.JSX.Element {
         header: t('Time'),
         Cell: ({ cell }) => {
           const timestamp = cell.getValue<string>();
-          const localTime = new Date(timestamp).toLocaleString();
+          const localTime = formatTime(timestamp);
           return <span data-query-timestamp>{localTime}</span>;
         },
         filterVariant: 'datetime-range',
@@ -253,7 +255,7 @@ function TableQueryLogs(): React.JSX.Element {
         enableColumnActions: false,
       },
     ],
-    [t],
+    [t, formatTime],
   );
 
   const { checkSessionError } = useUser();
@@ -387,11 +389,11 @@ function TableQueryLogs(): React.JSX.Element {
           const timerange = filter.value as string[];
           if (timerange.length === 2) {
             if (timerange[0]) {
-              queryParam['timestamp_after'] = new Date(timerange[0]).getTime();
+              queryParam['timestamp_after'] = filterTimestamp(timerange[0]);
             }
 
             if (timerange[1]) {
-              queryParam['timestamp_before'] = new Date(timerange[1]).getTime();
+              queryParam['timestamp_before'] = filterTimestamp(timerange[1]);
             }
           }
           continue;
@@ -554,7 +556,7 @@ function TableQueryLogs(): React.JSX.Element {
   const [columnSizing, setColumnSizing] = React.useState(() => readColumnSizing(COLUMN_SIZING_KEY));
 
   const widthText = React.useCallback((row: DomainList, id: string) => {
-    if (id === 'timestamp') return new Date(row.timestamp).toLocaleString();
+    if (id === 'timestamp') return formatTime(row.timestamp);
     if (id === 'domain_type') return getDomainTypeName(row.domain_type);
     if (id === 'domain_group') return row.domain_group || t('Default');
     if (id === 'is_blocked') return t(row.is_blocked ? 'Blocked' : 'Allowed');
@@ -562,13 +564,13 @@ function TableQueryLogs(): React.JSX.Element {
     if (id === 'ping_time') return typeof row.ping_time === 'number' && row.ping_time >= 0 ? `${row.ping_time} ms` : '—';
     if (id === 'query_time') return `${row.query_time} ms`;
     return String(row[id as keyof DomainList] ?? '');
-  }, [t]);
+  }, [t, formatTime]);
   const widthReferences = React.useMemo(() => ({
     id: ['99999999'],
     domain: [],
     domain_type: ['AAAA', 'HTTPS'],
     client: QUERY_CLIENT_ADDRESS_WIDTH_SAMPLES,
-    timestamp: [new Date(8888, 10, 28, 11, 59, 59).toLocaleString(), new Date(8888, 10, 28, 23, 59, 59).toLocaleString()],
+    timestamp: ['8888-88-88 88:88:88'],
     ping_time: ['999.9 ms'],
     domain_group: ['DIRECT', 'PROXY', 'REJECT', t('Default')],
     is_blocked: [t('Blocked'), t('Allowed')],
@@ -617,6 +619,8 @@ function TableQueryLogs(): React.JSX.Element {
     manualSorting: true,
     muiFilterDateTimePickerProps: {
       ampm: false,
+      timezone: timeZone,
+      format: 'YYYY-MM-DD HH:mm',
     },
     muiPaginationProps: {
       disabled: isRefetching,

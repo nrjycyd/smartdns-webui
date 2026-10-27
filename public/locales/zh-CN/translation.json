@@ -217,5 +217,15 @@
     "Auto fit follows window size and visible columns. Narrow screens keep horizontal scrolling. Switch to manual to restore your saved widths and drag column edges.": "默认自动适应，随窗口大小和显示列变化重新分配；空间不足时保留横向滚动。切换为手动调整可恢复原来保存的列宽，并拖动列边缘微调。选择会在当前浏览器保存。",
     "Could not read or save column width settings. Check browser storage permissions.": "无法读取或保存列宽设置，请检查浏览器存储权限。",
     "Cells stay on one line. Auto fit temporarily hides Reply Code when space is tight and restores it when space returns. Your saved column visibility stays unchanged.": "单元格保持单行，优先完整展示常用内容。空间不足时自动临时隐藏“回应码”，空间恢复后重新显示；手动隐藏的列保持隐藏，不改写已保存的显示列配置。",
-    "Signed out locally, but server sign-out failed. Check the connection, then sign in and retry signing out.": "已在本地退出，但未能撤销服务器会话。请检查连接，恢复后重新登录并再次退出。"
+    "Signed out locally, but server sign-out failed. Check the connection, then sign in and retry signing out.": "已在本地退出，但未能撤销服务器会话。请检查连接，恢复后重新登录并再次退出。",
+    "Time display": "时间显示",
+    "Choose a fixed display timezone for all devices. Server timestamps are unchanged.": "指定显示时区，不再跟随浏览器时区。仅转换显示，后台时间戳保持原样。",
+    "Could not read or save time settings. Check browser storage permissions.": "无法读取或保存时间设置，请检查浏览器存储权限。",
+    "Display timezone": "显示时区",
+    "Beijing time": "北京时间",
+    "Example": "示例",
+    "Statistics source timezone": "统计数据原始时区",
+    "Set this to the SmartDNS server timezone. Chart dates have no timezone; daily counts keep the server day boundaries.": "请设为 SmartDNS 服务器实际使用的时区。统计接口的日期不含时区，每日统计仍按服务器原有的日期边界划分。",
+    "Uses YYYY-MM-DD HH:mm:ss and a 24-hour clock. Saved in this browser for this address; it does not synchronize the system clock.": "统一使用 YYYY-MM-DD HH:mm:ss 和 24 小时制。设置仅保存在当前浏览器的此地址下，不执行系统校时。",
+    "Server daily bucket": "服务器每日统计时区"
 }

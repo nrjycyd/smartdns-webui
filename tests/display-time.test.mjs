@@ -1,0 +1,59 @@
+import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
+import { createRequire } from 'node:module';
+import test from 'node:test';
+import ts from 'typescript';
+
+const require = createRequire(import.meta.url);
+const source = await readFile(new URL('../src/lib/display-time.ts', import.meta.url), 'utf8');
+const compiled = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, esModuleInterop: true } }).outputText;
+const exports = {};
+new Function('exports', 'require', compiled)(exports, require);
+const { dayjs, formatDisplayTime, filterTimestamp, statisticsTime, nextStatisticsDay, parseTimeSettings, validTimeZone } = exports;
+
+test('display does not follow browser timezone and never changes the source instant', () => {
+  const instant = Date.parse('2026-10-27T12:34:56Z');
+  const original = process.env.TZ;
+  try {
+    for (const browserZone of ['UTC', 'America/Los_Angeles', 'Asia/Tokyo']) {
+      process.env.TZ = browserZone;
+      assert.equal(formatDisplayTime(instant, 'Asia/Shanghai'), '2026-10-27 20:34:56');
+      assert.equal(formatDisplayTime(instant, 'UTC'), '2026-10-27 12:34:56');
+      assert.equal(formatDisplayTime(instant, 'America/New_York'), '2026-10-27 08:34:56');
+      assert.equal(filterTimestamp(dayjs.utc(instant).tz('Asia/Shanghai')), instant);
+      assert.equal(filterTimestamp(dayjs.utc(instant).tz('UTC')), instant);
+    }
+  } finally { if (original === undefined) delete process.env.TZ; else process.env.TZ = original; }
+});
+
+test('date picker wall time maps back to the intended UTC filters, including zero', () => {
+  assert.equal(filterTimestamp(dayjs.tz('2026-10-27 20:00', 'Asia/Shanghai')), Date.parse('2026-10-27T12:00:00Z'));
+  assert.equal(filterTimestamp(dayjs.tz('2026-10-27 08:00', 'America/New_York')), Date.parse('2026-10-27T12:00:00Z'));
+  assert.equal(filterTimestamp(dayjs.utc(0)), 0);
+  for (const value of [null, undefined, '', '2026-10-27 20:00', dayjs('bad')]) assert.equal(filterTimestamp(value), undefined);
+});
+
+test('server chart strings are interpreted in source zone independently of display zone', () => {
+  const bucket = statisticsTime('2026-10-27 00:00:00', 'Asia/Shanghai');
+  assert.equal(bucket.valueOf(), Date.parse('2026-10-26T16:00:00Z'));
+  assert.equal(formatDisplayTime(bucket.valueOf(), 'UTC'), '2026-10-26 16:00:00');
+  assert.equal(statisticsTime('2026-10-27T00:00:00Z', 'Asia/Shanghai').valueOf(), Date.parse('2026-10-27T00:00:00Z'));
+  assert.equal(nextStatisticsDay('2026-10-27', 'Asia/Shanghai'), Date.parse('2026-10-27T16:00:00Z'));
+});
+
+test('daily bucket boundaries honor 23 and 25 hour DST days', () => {
+  for (const [date, hours] of [['2026-03-08', 23], ['2026-11-01', 25]]) {
+    const start = statisticsTime(date, 'America/New_York').valueOf();
+    assert.equal(nextStatisticsDay(date, 'America/New_York') - start, hours * 3600000);
+  }
+});
+
+test('invalid stored preferences use explicit Beijing defaults, never system timezone', () => {
+  for (const raw of [null, '{', 'null', '[]', '123', '{"timeZone":"system","statisticsTimeZone":"bad"}']) {
+    assert.deepEqual(parseTimeSettings(raw), { timeZone: 'Asia/Shanghai', statisticsTimeZone: 'Asia/Shanghai' });
+  }
+  assert.equal(validTimeZone('default'), false);
+  assert.deepEqual(parseTimeSettings('{"timeZone":"UTC","statisticsTimeZone":"Europe/Berlin"}'), { timeZone: 'UTC', statisticsTimeZone: 'Europe/Berlin' });
+  assert.equal(formatDisplayTime(NaN, 'UTC'), '—');
+  assert.equal(formatDisplayTime('bad', 'UTC'), '—');
+});

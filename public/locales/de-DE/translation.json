@@ -204,5 +204,15 @@
   "Auto fit follows window size and visible columns. Narrow screens keep horizontal scrolling. Switch to manual to restore your saved widths and drag column edges.": "Standardmäßig passen sich die Breiten an Fenster und sichtbare Spalten an. Bei Platzmangel bleibt horizontales Scrollen möglich. Manuell stellt Ihre gespeicherten Breiten wieder her. Die Auswahl wird in diesem Browser gespeichert.",
   "Could not read or save column width settings. Check browser storage permissions.": "Die Spalteneinstellungen konnten nicht gelesen oder gespeichert werden. Prüfen Sie die Speicherberechtigungen des Browsers.",
   "Cells stay on one line. Auto fit temporarily hides Reply Code when space is tight and restores it when space returns. Your saved column visibility stays unchanged.": "Zellen bleiben einzeilig. Bei Platzmangel wird der Antwortcode vorübergehend ausgeblendet und bei mehr Platz wieder angezeigt. Gespeicherte Einstellungen für sichtbare Spalten bleiben erhalten.",
-  "Signed out locally, but server sign-out failed. Check the connection, then sign in and retry signing out.": "Lokal abgemeldet, aber die Server-Abmeldung ist fehlgeschlagen. Prüfen Sie die Verbindung, melden Sie sich wieder an und erneut ab."
+  "Signed out locally, but server sign-out failed. Check the connection, then sign in and retry signing out.": "Lokal abgemeldet, aber die Server-Abmeldung ist fehlgeschlagen. Prüfen Sie die Verbindung, melden Sie sich wieder an und erneut ab.",
+  "Time display": "Zeitanzeige",
+  "Choose a fixed display timezone for all devices. Server timestamps are unchanged.": "Feste Anzeigezeitzone verwenden. Die Zeitstempel auf dem Server bleiben unverändert.",
+  "Could not read or save time settings. Check browser storage permissions.": "Zeiteinstellungen konnten nicht gelesen oder gespeichert werden. Prüfen Sie die Speicherberechtigungen.",
+  "Display timezone": "Anzeigezeitzone",
+  "Beijing time": "Peking-Zeit",
+  "Example": "Beispiel",
+  "Statistics source timezone": "Quellzeitzone der Statistik",
+  "Set this to the SmartDNS server timezone. Chart dates have no timezone; daily counts keep the server day boundaries.": "Zeitzone des SmartDNS-Servers einstellen. Statistikdaten enthalten keine Zeitzone; Tagesgrenzen bleiben die des Servers.",
+  "Uses YYYY-MM-DD HH:mm:ss and a 24-hour clock. Saved in this browser for this address; it does not synchronize the system clock.": "Format YYYY-MM-DD HH:mm:ss im 24-Stunden-System. Wird für diese Adresse im Browser gespeichert; keine Synchronisierung der Systemuhr.",
+  "Server daily bucket": "Server-Tagesstatistik"
 }
