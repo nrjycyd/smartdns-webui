@@ -18,8 +18,7 @@ import {
   type MRT_TableInstance as MRTTableInstance,
 } from 'material-react-table';
 import { Box, Card, IconButton, Tooltip, Chip } from '@mui/material';
-import { alpha, createTheme, useColorScheme } from '@mui/material/styles';
-import { blue, purple, grey } from '@mui/material/colors';
+import { createTheme, useColorScheme } from '@mui/material/styles';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import dayjs from 'dayjs';
 import {
@@ -97,26 +96,33 @@ function TableQueryLogs(): React.JSX.Element {
         Cell: ({ cell }) => {
           const type = cell.getValue<number>();
           const name = getDomainTypeName(type);
-          const tone = type === 1 || type === 28 ? blue : type === 64 || type === 65 ? purple : grey;
+          const tone = type === 1 || type === 28 ? ['#426b94', '#a0bfdc'] : type === 64 || type === 65 ? ['#806393', '#c6afd9'] : ['#687580', '#b1bec9'];
           return (
             <Tooltip title={`${name} · ${type}`} arrow placement="top">
-              <Box component="span" sx={(theme) => {
-                const background = alpha(tone[500], 0.1);
-                const darkBackground = alpha(tone[300], 0.15);
-                return {
-                  // Paint the label into existing cell spacing without changing
-                  // glyph metrics, intrinsic width, or the table's width budget.
-                  borderRadius: '3px',
-                  backgroundColor: background,
-                  boxShadow: `0 0 0 2px ${background}`,
-                  color: tone[800],
+              <Box component="span" sx={(theme) => ({
+                  display: 'inline-block',
+                  verticalAlign: 'middle',
+                  boxSizing: 'border-box',
+                  width: '44px',
+                  maxWidth: '100%',
+                  textAlign: 'center',
+                  fontSize: '10px',
+                  fontWeight: 400,
+                  lineHeight: '13px',
+                  letterSpacing: 'normal',
+                  padding: '0 1px',
+                  border: '1px solid #ccd3da',
+                  borderRadius: '5px',
+                  backgroundColor: 'transparent',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                  color: tone[0],
                   ...theme.applyStyles('dark', {
-                    color: tone[200],
-                    backgroundColor: darkBackground,
-                    boxShadow: `0 0 0 2px ${darkBackground}`,
+                    color: tone[1],
+                    borderColor: '#5d6b77',
                   }),
-                };
-              }}>{name}</Box>
+              })}>{name}</Box>
             </Tooltip>
           );
         },
