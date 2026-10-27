@@ -125,7 +125,7 @@ function TableQueryLogs(): React.JSX.Element {
         Cell: ({ cell }) => {
           const timestamp = cell.getValue<string>();
           const localTime = new Date(timestamp).toLocaleString();
-          return <span>{localTime}</span>;
+          return <span data-query-timestamp>{localTime}</span>;
         },
         filterVariant: 'datetime-range',
         columnFilterModeOptions: ['equals'],

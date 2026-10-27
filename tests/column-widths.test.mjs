@@ -96,6 +96,13 @@ test('timestamp reference samples cover fonts whose widest digit is not eight', 
   }
 });
 
+test('timestamp does not underestimate mixed digits when repeated widest digits kern tightly', () => {
+  const measure = (value) => [...value].reduce((sum, character) => sum + (character === '8' ? 10 : 9), 0) - (value.match(/88/g)?.length ?? 0) * 4;
+  const width = measureColumnContent('timestamp', ['8888/11/28 23:59:59'], measure);
+  assert(width >= measure('2026/10/27 21:42:59'));
+  assert(width >= [...'8888/88/88 88:88:88'].reduce((sum, character) => sum + measure(character), 0));
+});
+
 test('timestamp digit reserves retain locale punctuation and do not change other column samples', () => {
   const measure = (value) => [...value].reduce((width, digit) => width + (digit === '2' ? 10 : 5), 0);
   const sample = '11/28/8888, 11:59:59 PM';

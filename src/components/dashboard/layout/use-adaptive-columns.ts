@@ -40,7 +40,7 @@ export function useAdaptiveColumns<T extends object>({ layout: pageLayout, colum
   const { mode } = useTableWidth();
   const automatic = mode === 'auto';
   const containerRef = React.useRef<HTMLDivElement>(null);
-  const [measurement, setMeasurement] = React.useState({ width: 0, font: '14px sans-serif', weight: '400', spacing: 0, rem: 16, copyPadding: 0, headerDensity: density, headers: {} as Record<string, number>, revision: 0 });
+  const [measurement, setMeasurement] = React.useState({ width: 0, timestampWidth: 0, font: '14px sans-serif', weight: '400', spacing: 0, rem: 16, copyPadding: 0, headerDensity: density, headers: {} as Record<string, number>, revision: 0 });
 
 
   const layout = React.useMemo(() => {
@@ -65,6 +65,7 @@ export function useAdaptiveColumns<T extends object>({ layout: pageLayout, colum
       let floor = Math.max(80, Math.min(300, Math.ceil(content + contentAllowance)));
       if (pageLayout === 'query-log' && id !== 'domain') {
         floor = queryLogContentWidth(id, content, cellPadding, measurement.copyPadding);
+        if (id === 'timestamp') floor = Math.max(floor, measurement.timestampWidth);
       } else switch (id) {
         case 'domain': { floor = pageLayout === 'query-log' ? 180 : Math.max(180, Math.min(360, Math.ceil(content + padding + 8))); break;
         }
@@ -119,6 +120,29 @@ export function useAdaptiveColumns<T extends object>({ layout: pageLayout, colum
       const rem = Number.parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
       const copyPadding = copyButton ? (Number.parseFloat(style.paddingLeft) || 0) + (Number.parseFloat(style.paddingRight) || 0) : window.isSecureContext ? COPY_BUTTON_INLINE_PADDING * 2 : 0;
       const context = document.createElement('canvas').getContext('2d');
+      // Measure inside the actual time cell: another column's button typography
+      // and Canvas font defaults do not necessarily match Safari's rendered text.
+      let timestampWidth: number | undefined;
+      const timestamp = element.querySelector<HTMLElement>('[data-query-timestamp]');
+      if (pageLayout === 'query-log' && timestamp && referenceText?.timestamp) {
+        const probe = document.createElement('span');
+        probe.style.cssText = 'position:fixed;visibility:hidden;pointer-events:none;display:inline-block;width:max-content;max-width:none;white-space:pre;padding:0;margin:0;border:0;font:inherit;letter-spacing:inherit;word-spacing:inherit;font-feature-settings:inherit;font-variation-settings:inherit;';
+        timestamp.append(probe);
+        try {
+          const contentWidth = measureColumnContent('timestamp', referenceText.timestamp, (value) => {
+            probe.textContent = value;
+            return probe.getBoundingClientRect().width;
+          });
+          let inset = 0;
+          for (let node: HTMLElement | null = timestamp; node; node = node.parentElement) {
+            const nodeStyle = getComputedStyle(node);
+            inset += (Number.parseFloat(nodeStyle.paddingLeft) || 0) + (Number.parseFloat(nodeStyle.paddingRight) || 0)
+              + (Number.parseFloat(nodeStyle.borderLeftWidth) || 0) + (Number.parseFloat(nodeStyle.borderRightWidth) || 0);
+            if (node.tagName === 'TD') break;
+          }
+          timestampWidth = Math.ceil(contentWidth + inset + 4);
+        } finally { probe.remove(); }
+      }
       const headers: Record<string, number> = {};
       for (const th of element.querySelectorAll<HTMLTableCellElement>('thead th')) {
         const wrapper = th.querySelector('.Mui-TableHeadCell-Content-Wrapper');
@@ -139,8 +163,9 @@ export function useAdaptiveColumns<T extends object>({ layout: pageLayout, colum
         for (const [title, width] of Object.entries(headers)) nextHeaders[title] = Math.max(nextHeaders[title] ?? 0, width);
         // An empty/loading body must not temporarily replace body metrics with header typography.
         const body = data.length > 0 ? { font, weight, spacing, copyPadding } : { font: previous.font, weight: previous.weight, spacing: previous.spacing, copyPadding: previous.copyPadding };
-        if (previous.width === width && previous.font === body.font && previous.weight === body.weight && previous.spacing === body.spacing && previous.rem === rem && previous.copyPadding === body.copyPadding && previous.headerDensity === density && JSON.stringify(previous.headers) === JSON.stringify(nextHeaders)) return previous;
-        return { ...previous, width, ...body, rem, headerDensity: density, headers: nextHeaders };
+        const nextTimestampWidth = timestampWidth ?? previous.timestampWidth;
+        if (previous.timestampWidth === nextTimestampWidth && previous.width === width && previous.font === body.font && previous.weight === body.weight && previous.spacing === body.spacing && previous.rem === rem && previous.copyPadding === body.copyPadding && previous.headerDensity === density && JSON.stringify(previous.headers) === JSON.stringify(nextHeaders)) return previous;
+        return { ...previous, timestampWidth: nextTimestampWidth, width, ...body, rem, headerDensity: density, headers: nextHeaders };
       });
     };
     const schedule = () => { cancelAnimationFrame(frame); frame = requestAnimationFrame(measure); };
@@ -150,7 +175,7 @@ export function useAdaptiveColumns<T extends object>({ layout: pageLayout, colum
     observer.observe(element);
     document.fonts?.addEventListener('loadingdone', fontsLoaded);
     return () => { observer.disconnect(); cancelAnimationFrame(frame); document.fonts?.removeEventListener('loadingdone', fontsLoaded); };
-  }, [automatic, columns, density, layout.columnVisibility, data.length]);
+  }, [automatic, columns, density, layout.columnVisibility, data.length, pageLayout, referenceText]);
 
   return { automatic, containerRef, ...layout, cellSx: singleLineCellSx, copySx: singleLineCopySx, headerSx: singleLineHeaderSx };
 }

@@ -69,7 +69,11 @@ export function measureColumnContent(id: string, values: readonly string[], meas
   let width = 0;
   for (const value of values) {
     if (ipColumn && !includeIpv6 && isIpv6Address(value)) continue;
-    width = Math.max(width, measure(widestDigit ? value.replaceAll(/\d/g, widestDigit) : value));
+    const sample = widestDigit ? value.replaceAll(/\d/g, widestDigit) : value;
+    // Repeating the widest glyph can introduce kerning that real mixed digits do
+    // not have. Keep the sum of individual advances as a conservative bound.
+    const unkerned = widestDigit ? [...sample].reduce((sum, character) => sum + measure(character), 0) : 0;
+    width = Math.max(width, measure(sample), unkerned);
   }
   return width;
 }
