@@ -96,24 +96,27 @@ function TableQueryLogs(): React.JSX.Element {
         Cell: ({ cell }) => {
           const type = cell.getValue<number>();
           const name = getDomainTypeName(type);
-          const tone = type === 1 || type === 28 ? ['#BE2870', '#F3A0C6'] : ['#607080', '#B9C3CE'];
+          const tone = type === 1 ? ['#1F7AE0', '#80B6F5'] : type === 28 ? ['#16A34A', '#6DD995'] : type === 65 ? ['#D9488F', '#F29BC5'] : ['#8A929B', '#B9C3CE'];
           return (
             <Tooltip title={`${name} · ${type}`} arrow placement="top">
               <Box component="span" sx={(theme) => ({
-                  display: 'inline-block',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
                   verticalAlign: 'middle',
                   boxSizing: 'border-box',
-                  width: '44px',
+                  minWidth: 0,
                   height: '18px',
                   maxWidth: '100%',
                   textAlign: 'center',
-                  fontSize: '12px',
-                  fontWeight: 400,
-                  lineHeight: '16px',
-                  letterSpacing: 'normal',
-                  padding: '0 1px',
-                  border: '1px solid #CDD2D8',
-                  borderRadius: '5px',
+                  fontFamily: '"Roboto Mono", ui-monospace, SFMono-Regular, Consolas, monospace',
+                  fontSize: '10px',
+                  fontWeight: 600,
+                  lineHeight: 1,
+                  letterSpacing: '-0.02em',
+                  padding: '0 4px',
+                  border: '1px solid currentColor',
+                  borderRadius: '999px',
                   backgroundColor: 'transparent',
                   overflow: 'hidden',
                   textOverflow: 'ellipsis',
@@ -121,7 +124,6 @@ function TableQueryLogs(): React.JSX.Element {
                   color: tone[0],
                   ...theme.applyStyles('dark', {
                     color: tone[1],
-                    borderColor: '#59636F',
                   }),
               })}>{name}</Box>
             </Tooltip>
