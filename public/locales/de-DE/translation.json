@@ -214,11 +214,5 @@
   "Statistics source timezone": "Quellzeitzone der Statistik",
   "Set this to the SmartDNS server timezone. Chart dates have no timezone; daily counts keep the server day boundaries.": "Zeitzone des SmartDNS-Servers einstellen. Statistikdaten enthalten keine Zeitzone; Tagesgrenzen bleiben die des Servers.",
   "Uses YYYY-MM-DD HH:mm:ss and a 24-hour clock. Saved in this browser for this address; it does not synchronize the system clock.": "Format YYYY-MM-DD HH:mm:ss im 24-Stunden-System. Wird für diese Adresse im Browser gespeichert; keine Synchronisierung der Systemuhr.",
-  "Server daily bucket": "Server-Tagesstatistik",
-  "Stop loading": "Laden stoppen",
-  "Refresh group trends": "Gruppentrends aktualisieren",
-  "Load daily group trends": "Tägliche Gruppentrends laden",
-  "Loading group trends": "Gruppentrends werden geladen",
-  "Some group counts could not be loaded. Missing points are gaps, not zero.": "Einige Gruppenzähler konnten nicht geladen werden. Fehlende Punkte bleiben Lücken, nicht null.",
-  "Total": "Gesamt"
+  "Server daily bucket": "Server-Tagesstatistik"
 }

@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import Box from '@mui/material/Box';
-import { useColorScheme, type SxProps } from '@mui/material/styles';
+import { useTheme, type SxProps } from '@mui/material/styles';
 import { smartdnsServer } from '@/lib/backend/server';
 import type { HourlyQueryCountResponse } from '@/lib/backend/server';
 import { useUser } from '@/hooks/use-user';
@@ -17,11 +17,6 @@ import { paths } from '@/paths';
 import { useRouter } from 'next/navigation';
 import { statisticsTime } from '@/lib/display-time';
 import { useTimeDisplay } from '../layout/time-display-provider';
-import { useGroupAppearance } from '../query-log/group-label';
-import { GroupTrendControls } from './group-trend-controls';
-import { useGroupTrends } from './use-group-trends';
-import { groupTrendColor } from './group-trend-colors';
-import { groupTrendLegendLabels, toggleGroupTrendLegend } from './group-trend-legend';
 
 Chart.register(...registerables);
 Chart.register(annotationPlugin);
@@ -37,16 +32,7 @@ function HourlyQueryCountTable({ queryCount, setTitle, setTitleAction }: HourlyQ
   const { timeZone, statisticsTimeZone, formatTime } = useTimeDisplay();
   const { t } = useTranslation();
   const router = useRouter();
-  const { colorScheme } = useColorScheme();
-  const { groups: appearances } = useGroupAppearance();
-  const series = React.useMemo(() => queryCount.hourly_query_count.slice(0, 24), [queryCount.hourly_query_count]);
-  const buckets = React.useMemo(() => series.map(bucket => {
-    const start = statisticsTime(bucket.hour, statisticsTimeZone).valueOf();
-    return { start, end: Math.min(start + 3600000, queryCount.query_timestamp) };
-  }), [series, statisticsTimeZone, queryCount.query_timestamp]);
-  const trend = useGroupTrends(buckets, true, statisticsTimeZone);
-  const { loading: groupsLoading, failed: groupFailures, enabled: groupsEnabled, refresh: refreshGroups, stop: stopGroups } = trend;
-  const colors = React.useMemo(() => trend.groups.map(group => groupTrendColor(group, appearances, colorScheme === 'dark')), [trend.groups, appearances, colorScheme]);
+  const theme = useTheme();
   const myChartRef = React.useRef<Chart<'line'> | null>(null);
   const [isRangeReady, setIsRangeReady] = React.useState(false);
   const [selectedRange, setSelectedRange] = React.useState<{ start: number, end: number } | null>(null);
@@ -54,11 +40,9 @@ function HourlyQueryCountTable({ queryCount, setTitle, setTitleAction }: HourlyQ
   React.useEffect(() => {
     setTitle("Hourly Query Count");
     setTitleAction(
-      <Box sx={{ display: 'flex', alignItems: 'center' }}>
-      <GroupTrendControls trend={{ loading: groupsLoading, failed: groupFailures, enabled: groupsEnabled, refresh: refreshGroups, stop: stopGroups }} />
-      <IconButton aria-label={t('Query Log')} title={t('Query Log')}
+      <IconButton
         onClick={(): void => {
-          const queryCountList = series;
+          const queryCountList = queryCount.hourly_query_count;
           const queryTimestamp = queryCount.query_timestamp;
 
           let start = selectedRange?.start ?? -1;
@@ -113,15 +97,12 @@ function HourlyQueryCountTable({ queryCount, setTitle, setTitleAction }: HourlyQ
       >
         <FindInPageOutlined />
       </IconButton>
-      </Box>
     );
-  }, [setTitle, setTitleAction, selectedRange, router, queryCount, statisticsTimeZone, series, t, groupsLoading, groupFailures, groupsEnabled, refreshGroups, stopGroups]);
+  }, [setTitle, setTitleAction, selectedRange, router, queryCount, statisticsTimeZone]);
 
   const handleClick = (event: ChartEvent, _elements: ActiveElement[], chart: Chart): void => {
-    const area = chart.chartArea;
-    if (event.x === null || event.y === null || event.x < area.left || event.x > area.right || event.y < area.top || event.y > area.bottom) return;
     const xScale = chart.scales['x'];
-    const x = Math.max(0, Math.min(series.length - 1, Math.round(xScale.getValueForPixel(event.x) ?? 0)));
+    const x = xScale.getValueForPixel(event.x ?? 0) ?? 0;
 
     if (isRangeReady) {
       setSelectedRange(null);
@@ -138,39 +119,24 @@ function HourlyQueryCountTable({ queryCount, setTitle, setTitleAction }: HourlyQ
     setIsRangeReady(true);
   };
 
-  return (<><Box
+  return (<Box
     sx={{
-      height: '260px',
+      height: '200px',
     }}>
     <Line
       ref={myChartRef}
       data={{
-        labels: series.map((data) => {
+        labels: queryCount.hourly_query_count.map((data) => {
           return formatTime(statisticsTime(data.hour, statisticsTimeZone).valueOf(), 'HH:mm');
         }),
         datasets: [
           {
-            label: t('Total'),
-            data: series.map((data) => data.query_count),
+            label: t("Query Count"),
+            data: queryCount.hourly_query_count.map((data) => data.query_count),
             fill: false,
-            borderColor: colorScheme === 'dark' ? '#aab4c0' : '#6b7280',
-            borderDash: [5, 4],
-            borderWidth: 1.5,
-            pointRadius: 0,
+            borderColor: theme.palette.primary.main,
             tension: 0.1,
-          },
-          ...trend.groups.map((group, index) => ({
-            label: group,
-            data: buckets.map(bucket => trend.counts[group]?.[bucket.start] ?? null),
-            borderColor: colors[index],
-            backgroundColor: colors[index],
-            borderWidth: 2,
-            pointRadius: 1.5,
-            pointHoverRadius: 4,
-            tension: 0.1,
-            fill: false,
-            spanGaps: false,
-          })),
+          }
         ],
       }}
       options={{
@@ -194,10 +160,7 @@ function HourlyQueryCountTable({ queryCount, setTitle, setTitleAction }: HourlyQ
         },
         plugins: {
           legend: {
-            display: true,
-            position: 'bottom',
-            onClick: toggleGroupTrendLegend,
-            labels: { usePointStyle: true, boxWidth: 8, boxHeight: 8, padding: 24, font: { size: 11 }, generateLabels: groupTrendLegendLabels },
+            display: false
           },
           annotation: {
             annotations: {
@@ -211,11 +174,11 @@ function HourlyQueryCountTable({ queryCount, setTitle, setTitleAction }: HourlyQ
             },
           },
           tooltip: {
-            displayColors: true,
+            displayColors: false,
             callbacks: {
               title: (items) => {
                 if (items.length === 0) return '';
-                const bucket = series[items[0].dataIndex];
+                const bucket = queryCount.hourly_query_count[items[0].dataIndex];
                 return bucket ? `${formatTime(statisticsTime(bucket.hour, statisticsTimeZone).valueOf())} · ${timeZone}` : '';
               },
             },
@@ -225,7 +188,7 @@ function HourlyQueryCountTable({ queryCount, setTitle, setTitleAction }: HourlyQ
         onClick: handleClick,
       }}
     />
-  </Box></>);
+  </Box>);
 }
 
 export function HourlyQueryCountCard(sx: SxProps): React.JSX.Element {

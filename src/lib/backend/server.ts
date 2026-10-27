@@ -43,11 +43,8 @@ class DataServer {
     }
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any  -- Expected
-    async fetch<T>(path: string, method: string, headers: HeadersInit, bodyData: any, noSignOut = false, signal?: AbortSignal): Promise<FetchResponse<T>> {
+    async fetch<T>(path: string, method: string, headers: HeadersInit, bodyData: any, noSignOut = false): Promise<FetchResponse<T>> {
         const controller = new AbortController();
-        const abort = () => { controller.abort(); };
-        if (signal?.aborted) controller.abort();
-        else signal?.addEventListener('abort', abort, { once: true });
         const timeout = setTimeout(() => { controller.abort(); }, 15_000);
         try {
             let response;
@@ -104,7 +101,6 @@ class DataServer {
             return { error: error as ServerError };
         } finally {
             clearTimeout(timeout);
-            signal?.removeEventListener('abort', abort);
         }
     }
 }
@@ -415,7 +411,7 @@ class SmartDNSAPI {
         return ret;
     }
 
-    async GetQueryLogs(param: QueryLogsParams, signal?: AbortSignal): Promise<{ error?: ServerError, data?: QueryLogs | null }> {
+    async GetQueryLogs(param: QueryLogsParams): Promise<{ error?: ServerError, data?: QueryLogs | null }> {
 
         const searchParams = new URLSearchParams();
 
@@ -487,7 +483,7 @@ class SmartDNSAPI {
             searchParams.append('total_count', param.total_count.toString());
         }
 
-        const ret = await this.server.fetch<QueryLogs>(`/api/domain?${searchParams.toString()}`, 'GET', {}, {}, false, signal);
+        const ret = await this.server.fetch<QueryLogs>(`/api/domain?${searchParams.toString()}`, 'GET', {}, {});
         return ret;
     }
 
