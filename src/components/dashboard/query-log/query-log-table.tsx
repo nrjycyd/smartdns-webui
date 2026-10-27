@@ -96,7 +96,7 @@ function TableQueryLogs(): React.JSX.Element {
         Cell: ({ cell }) => {
           const type = cell.getValue<number>();
           const name = getDomainTypeName(type);
-          const tone = type === 1 || type === 28 ? ['#2563EB', '#93B8FF'] : type === 64 || type === 65 ? ['#BE2870', '#F3A0C6'] : ['#607080', '#B9C3CE'];
+          const tone = type === 1 || type === 28 ? ['#BE2870', '#F3A0C6'] : ['#607080', '#B9C3CE'];
           return (
             <Tooltip title={`${name} · ${type}`} arrow placement="top">
               <Box component="span" sx={(theme) => ({
