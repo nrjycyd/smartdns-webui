@@ -256,5 +256,15 @@
     "Appearance settings are saved in this browser.": "外观设置保存在当前浏览器。",
     "Choose or enter a group name; appearance only.": "选择或输入组名，仅设置显示外观。",
     "Match the SmartDNS server timezone.": "请选择 SmartDNS 服务器使用的时区。",
-    "Time settings are saved in this browser.": "时间设置保存在当前浏览器。"
+    "Time settings are saved in this browser.": "时间设置保存在当前浏览器。",
+    "Backup": "备份",
+    "Export settings": "导出设置",
+    "Import settings": "导入设置",
+    "Confirm import": "确认导入",
+    "Back up client names, icons, group appearance, table preferences, time, language and theme.": "备份客户端名称与图标、分组外观、表格偏好、时区、语言和主题。",
+    "Could not export settings. Check browser storage and saved settings.": "导出失败，请检查浏览器存储及已保存的设置。",
+    "Choose a valid WebUI backup or group appearance JSON file under 1 MB.": "请选择小于 1 MB 的有效 WebUI 备份或分组外观 JSON 文件。",
+    "Import failed and some settings could not be restored. Check browser storage before retrying.": "导入失败，部分设置无法还原，请检查浏览器存储后重试。",
+    "Could not import settings. Your existing settings were preserved.": "导入失败，原有设置已保留。",
+    "Validated {{count}} settings. Import replaces the settings in this file and reloads the page.": "已校验 {{count}} 项设置。导入将替换文件包含的设置，并刷新页面。"
 }

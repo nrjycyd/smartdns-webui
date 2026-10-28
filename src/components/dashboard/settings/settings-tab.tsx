@@ -8,6 +8,7 @@ import { ChangeLang } from '@/components/dashboard/settings/change-lang';
 import { GroupAppearanceSettings } from '@/components/dashboard/settings/group-appearance-settings';
 import { DisplaySettings } from '@/components/dashboard/settings/display-settings';
 import { TimeDisplaySettings } from '@/components/dashboard/settings/time-display-settings';
+import { BackupSettings } from '@/components/dashboard/settings/backup-settings';
 import { TabContext, TabList, TabPanel } from '@mui/lab';
 import { Box, Card, CardContent, Tab, Typography } from '@mui/material';
 import { useTranslation } from 'react-i18next';
@@ -30,6 +31,7 @@ const tabs = [
     pannel: <DisplaySettings />,
   },
   { label: 'Time display', pannel: <TimeDisplaySettings /> },
+  { label: 'Backup', pannel: <BackupSettings /> },
 ];
 
 export default function SettingsTab(): React.JSX.Element {

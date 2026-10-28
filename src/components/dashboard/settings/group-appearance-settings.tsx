@@ -4,7 +4,7 @@ import * as React from 'react';
 import { Alert, Autocomplete, Box, Button, Chip, CircularProgress, Divider, InputAdornment, MenuItem, Stack, TextField, Typography } from '@mui/material';
 import { useTranslation } from 'react-i18next';
 
-import { EMPTY_GROUP_APPEARANCES, getGroupAppearance, isGroupIconName, joinThemeColors, mergeGroupAppearances, parseGroupOverrides, serializeGroupOverrides, setGroupOverride, splitThemeColor, type GroupAppearanceField, type GroupAppearances } from '@/components/dashboard/query-log/group-appearance';
+import { getGroupAppearance, isGroupIconName, joinThemeColors, mergeGroupAppearances, parseGroupOverrides, serializeGroupOverrides, setGroupOverride, splitThemeColor, type GroupAppearanceField, type GroupAppearances } from '@/components/dashboard/query-log/group-appearance';
 import { GroupLabel, useGroupAppearance } from '@/components/dashboard/query-log/group-label';
 import groupIcons from '@/components/dashboard/query-log/group-icons.json';
 
@@ -63,13 +63,12 @@ function ColorRuleEditor({ label, value, fallback, emptyLabel, disabled, onChang
 
 function GroupAppearanceEditor(): React.JSX.Element {
   const { t } = useTranslation();
-  const { defaults, overrides, knownGroups, storageError, save, refresh } = useGroupAppearance();
+  const { defaults, overrides, knownGroups, storageError, save } = useGroupAppearance();
   const [draft, setDraft] = React.useState(overrides);
   const [baseline, setBaseline] = React.useState(overrides);
   const [selected, setSelected] = React.useState(Object.keys(defaults)[0] || Object.keys(overrides)[0] || 'default');
   const [editingIcon, setEditingIcon] = React.useState(false);
   const [message, setMessage] = React.useState<{ severity: 'success' | 'info' | 'error'; text: string } | null>(null);
-  const fileInput = React.useRef<HTMLInputElement>(null);
   const dirty = serializeGroupOverrides(draft) !== serializeGroupOverrides(baseline);
   const externalChange = serializeGroupOverrides(overrides) !== serializeGroupOverrides(baseline);
 
@@ -102,30 +101,6 @@ function GroupAppearanceEditor(): React.JSX.Element {
       setEditingIcon(false);
       setMessage({ severity: 'success', text: t('Group appearance saved in this browser.') });
     } else setMessage({ severity: 'error', text: t('Could not save local settings. Check browser storage permissions.') });
-  }
-
-  async function importFile(file: File | undefined) {
-    if (!file) return;
-    try {
-      if (file.size > 1024 * 1024) throw new Error('File too large');
-      const next = parseGroupOverrides(await file.text());
-      if (validateOverrides(next, defaults)) throw new Error('Invalid appearance');
-      setDraft(next);
-      setSelected(Object.keys(next)[0] || Object.keys(defaults)[0] || 'default');
-      setEditingIcon(false);
-      setMessage({ severity: 'info', text: t('Custom settings imported. Review the preview and save.') });
-    } catch {
-      setMessage({ severity: 'error', text: t('Could not import settings. Choose a valid group appearance JSON file under 1 MB.') });
-    }
-  }
-
-  function exportFile() {
-    const url = URL.createObjectURL(new Blob([serializeGroupOverrides(draft)], { type: 'application/json' }));
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = 'smartdns-group-appearance.json';
-    link.click();
-    setTimeout(() => { URL.revokeObjectURL(url); }, 0);
   }
 
   return (
@@ -174,13 +149,6 @@ function GroupAppearanceEditor(): React.JSX.Element {
         <Button disabled={Object.keys(rule).length === 0} onClick={() => { setDraft((previous) => { const next = { ...previous }; delete next[selected]; return next; }); setEditingIcon(false); setMessage(null); }}>{t('Reset this group')}</Button>
       </Stack>
       {dirty && <Typography variant="body2" color="text.secondary">{t('Preview changes are not saved yet.')}</Typography>}
-      <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: 'wrap' }}>
-        <Button onClick={refresh}>{t('Reload file defaults')}</Button>
-        <Button disabled={Object.keys(draft).length === 0} onClick={() => { setDraft(EMPTY_GROUP_APPEARANCES); setEditingIcon(false); setMessage(null); }}>{t('Reset all custom settings')}</Button>
-        <Button onClick={() => { fileInput.current?.click(); }}>{t('Import custom settings')}</Button>
-        <Button disabled={errorGroup !== undefined} onClick={exportFile}>{t('Export custom settings')}</Button>
-      </Stack>
-      <input ref={fileInput} type="file" accept=".json,application/json" hidden onChange={(event) => { void importFile(event.target.files?.[0]); event.target.value = ''; }} />
     </Stack>
   );
 }
