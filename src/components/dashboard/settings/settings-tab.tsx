@@ -5,7 +5,6 @@ import Stack from '@mui/material/Stack';
 
 import { UpdatePasswordForm } from '@/components/dashboard/settings/update-password-form';
 import { ChangeLang } from '@/components/dashboard/settings/change-lang';
-import { InstallApp } from '@/components/dashboard/settings/install-app';
 import { GroupAppearanceSettings } from '@/components/dashboard/settings/group-appearance-settings';
 import { DisplaySettings } from '@/components/dashboard/settings/display-settings';
 import { TimeDisplaySettings } from '@/components/dashboard/settings/time-display-settings';
@@ -21,10 +20,6 @@ const tabs = [
   {
     label: 'Language',
     pannel: <ChangeLang />,
-  },
-  {
-    label: 'Install app',
-    pannel: <InstallApp />,
   },
   {
     label: 'Group appearance',
