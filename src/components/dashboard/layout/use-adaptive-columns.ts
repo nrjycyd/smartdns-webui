@@ -40,7 +40,7 @@ export function useAdaptiveColumns<T extends object>({ layout: pageLayout, colum
   const { mode } = useTableWidth();
   const automatic = mode === 'auto';
   const containerRef = React.useRef<HTMLDivElement>(null);
-  const [measurement, setMeasurement] = React.useState({ width: 0, timestampWidth: 0, font: '14px sans-serif', weight: '400', spacing: 0, rem: 16, copyPadding: 0, headerDensity: density, headers: {} as Record<string, number>, revision: 0 });
+  const [measurement, setMeasurement] = React.useState({ width: 0, timestampWidth: 0, clientWidth: 0, font: '14px sans-serif', weight: '400', spacing: 0, rem: 16, copyPadding: 0, headerDensity: density, headers: {} as Record<string, number>, revision: 0 });
 
 
   const layout = React.useMemo(() => {
@@ -66,6 +66,7 @@ export function useAdaptiveColumns<T extends object>({ layout: pageLayout, colum
       if (pageLayout === 'query-log' && id !== 'domain') {
         floor = queryLogContentWidth(id, content, cellPadding, measurement.copyPadding);
         if (id === 'timestamp') floor = Math.max(floor, measurement.timestampWidth);
+        if (id === 'client' && measurement.clientWidth > 0) floor = Math.min(280, measurement.clientWidth);
       } else switch (id) {
         case 'domain': { floor = pageLayout === 'query-log' ? 180 : Math.max(180, Math.min(360, Math.ceil(content + padding + 8))); break;
         }
@@ -120,6 +121,31 @@ export function useAdaptiveColumns<T extends object>({ layout: pageLayout, colum
       const rem = Number.parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
       const copyPadding = copyButton ? (Number.parseFloat(style.paddingLeft) || 0) + (Number.parseFloat(style.paddingRight) || 0) : window.isSecureContext ? COPY_BUTTON_INLINE_PADDING * 2 : 0;
       const context = document.createElement('canvas').getContext('2d');
+      // Names arrive asynchronously, and a hidden icon needs no decoration budget.
+      // Measure full label text independently of the cell's current clipped width.
+      let clientWidth: number | undefined;
+      if (pageLayout === 'query-log' && context) {
+        for (const button of element.querySelectorAll<HTMLElement>('tbody [data-query-client]')) {
+          const label = button.querySelector<HTMLElement>('[data-query-client-text]');
+          if (!label) continue;
+          const labelStyle = getComputedStyle(label);
+          const value = label.textContent ?? '';
+          context.font = `${labelStyle.fontWeight} ${labelStyle.fontSize} ${labelStyle.fontFamily}`;
+          const labelWidth = context.measureText(value).width + Math.max(0, value.length - 1) * (Number.parseFloat(labelStyle.letterSpacing) || 0);
+          const parts = [...button.querySelectorAll<HTMLElement>(':scope > [data-client-device-icon], :scope > [data-query-client-text], :scope > [data-query-client-unknown]')];
+          const buttonStyle = getComputedStyle(button);
+          const decorations = parts.filter((part) => part !== label).reduce((sum, part) => sum + outerWidth(part), 0);
+          const gaps = Math.max(0, parts.length - 1) * (Number.parseFloat(buttonStyle.columnGap) || 0);
+          let inset = 0;
+          for (let node: HTMLElement | null = button; node; node = node.parentElement) {
+            const nodeStyle = getComputedStyle(node);
+            inset += (Number.parseFloat(nodeStyle.paddingLeft) || 0) + (Number.parseFloat(nodeStyle.paddingRight) || 0)
+              + (Number.parseFloat(nodeStyle.borderLeftWidth) || 0) + (Number.parseFloat(nodeStyle.borderRightWidth) || 0);
+            if (node.tagName === 'TD') break;
+          }
+          clientWidth = Math.max(clientWidth ?? 0, Math.ceil(labelWidth + decorations + gaps + inset + 4));
+        }
+      }
       // Measure inside the actual time cell: another column's button typography
       // and Canvas font defaults do not necessarily match Safari's rendered text.
       let timestampWidth: number | undefined;
@@ -164,8 +190,9 @@ export function useAdaptiveColumns<T extends object>({ layout: pageLayout, colum
         // An empty/loading body must not temporarily replace body metrics with header typography.
         const body = data.length > 0 ? { font, weight, spacing, copyPadding } : { font: previous.font, weight: previous.weight, spacing: previous.spacing, copyPadding: previous.copyPadding };
         const nextTimestampWidth = timestampWidth ?? previous.timestampWidth;
-        if (previous.timestampWidth === nextTimestampWidth && previous.width === width && previous.font === body.font && previous.weight === body.weight && previous.spacing === body.spacing && previous.rem === rem && previous.copyPadding === body.copyPadding && previous.headerDensity === density && JSON.stringify(previous.headers) === JSON.stringify(nextHeaders)) return previous;
-        return { ...previous, timestampWidth: nextTimestampWidth, width, ...body, rem, headerDensity: density, headers: nextHeaders };
+        const nextClientWidth = clientWidth ?? previous.clientWidth;
+        if (previous.clientWidth === nextClientWidth && previous.timestampWidth === nextTimestampWidth && previous.width === width && previous.font === body.font && previous.weight === body.weight && previous.spacing === body.spacing && previous.rem === rem && previous.copyPadding === body.copyPadding && previous.headerDensity === density && JSON.stringify(previous.headers) === JSON.stringify(nextHeaders)) return previous;
+        return { ...previous, clientWidth: nextClientWidth, timestampWidth: nextTimestampWidth, width, ...body, rem, headerDensity: density, headers: nextHeaders };
       });
     };
     const schedule = () => { cancelAnimationFrame(frame); frame = requestAnimationFrame(measure); };
@@ -173,8 +200,15 @@ export function useAdaptiveColumns<T extends object>({ layout: pageLayout, colum
     measure();
     const observer = new ResizeObserver(schedule);
     observer.observe(element);
+    const clientObserver = pageLayout === 'query-log' ? new MutationObserver((records) => {
+      if (records.some((record) => {
+        const target = record.target instanceof Element ? record.target : record.target.parentElement;
+        return target?.closest('[data-query-client]') || [...record.addedNodes].some((node) => node instanceof Element && (node.matches('[data-query-client]') || node.querySelector('[data-query-client]')));
+      })) schedule();
+    }) : undefined;
+    clientObserver?.observe(element, { childList: true, characterData: true, subtree: true });
     document.fonts?.addEventListener('loadingdone', fontsLoaded);
-    return () => { observer.disconnect(); cancelAnimationFrame(frame); document.fonts?.removeEventListener('loadingdone', fontsLoaded); };
+    return () => { observer.disconnect(); clientObserver?.disconnect(); cancelAnimationFrame(frame); document.fonts?.removeEventListener('loadingdone', fontsLoaded); };
   }, [automatic, columns, density, layout.columnVisibility, data.length, pageLayout, referenceText]);
 
   return { automatic, containerRef, ...layout, cellSx: singleLineCellSx, copySx: singleLineCopySx, headerSx: singleLineHeaderSx };

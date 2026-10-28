@@ -3,7 +3,7 @@ import moment from 'moment-timezone';
 export { default as moment } from 'moment-timezone';
 export const DEFAULT_TIME_ZONE = 'Asia/Shanghai';
 export const TIME_SETTINGS_KEY = 'smartdns-webui:time-display:v1';
-export const DATE_TIME_FORMAT = 'YYYY-MM-DD HH:mm:ss';
+export const DATE_TIME_FORMAT = 'YYYY/MM/DD HH:mm:ss';
 export interface TimeSettings { timeZone: string; statisticsTimeZone: string }
 export const DEFAULT_TIME_SETTINGS: TimeSettings = { timeZone: DEFAULT_TIME_ZONE, statisticsTimeZone: DEFAULT_TIME_ZONE };
 

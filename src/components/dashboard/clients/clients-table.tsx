@@ -377,7 +377,7 @@ function TableClients(): React.JSX.Element {
     muiFilterDateTimePickerProps: {
       ampm: false,
       timezone: timeZone,
-      format: 'YYYY-MM-DD HH:mm',
+      format: 'YYYY/MM/DD HH:mm',
     },
     muiPaginationProps: {
       disabled: isRefetching,

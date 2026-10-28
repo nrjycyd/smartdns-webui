@@ -48,6 +48,7 @@ export function QueryClientIdentityCell({ ip }: { ip: string }): React.JSX.Eleme
   return (
     <Tooltip title={title}>
       <Button
+        data-query-client
         type="button" size="small" variant="text" aria-label={`${t('Copy')}: ${tooltip}`}
         sx={{ ...singleLineCopySx, padding: 0, margin: '-0.25rem 0', gap: 0.75, fontFamily: 'inherit', fontSize: 'inherit', letterSpacing: 'inherit', color: 'inherit', textTransform: 'none', textAlign: 'left' }}
         onClick={async (event) => {
@@ -59,7 +60,7 @@ export function QueryClientIdentityCell({ ip }: { ip: string }): React.JSX.Eleme
             enqueueSnackbar(t('Failed to copy client details'), { variant: 'error' });
           }
         }}
-      ><ClientDeviceIcon icon={icon} activity={activity} /><Box component="span" sx={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis' }}>{name || formatQueryClientAddress(ip)}</Box>{activity === 'unknown' && <Box component="span" aria-label={status} sx={{ flexShrink: 0, color: 'text.secondary', fontSize: 12 }}>?</Box>}</Button>
+      ><ClientDeviceIcon icon={icon} activity={activity} /><Box component="span" data-query-client-text sx={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis' }}>{name || formatQueryClientAddress(ip)}</Box>{activity === 'unknown' && <Box component="span" data-query-client-unknown aria-label={status} sx={{ flexShrink: 0, color: 'text.secondary', fontSize: 12 }}>?</Box>}</Button>
     </Tooltip>
   );
 }

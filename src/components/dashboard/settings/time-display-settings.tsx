@@ -26,6 +26,6 @@ export function TimeDisplaySettings(): React.JSX.Element {
       onChange={(event) => { save({ timeZone, statisticsTimeZone: event.target.value }); }}>
       {[...new Set([...zones, statisticsTimeZone])].map(zone => <MenuItem key={zone} value={zone}>{zone}</MenuItem>)}
     </TextField>
-    <Typography variant="body2" color="text.secondary">{t('Uses YYYY-MM-DD HH:mm:ss and a 24-hour clock. Saved in this browser for this address; it does not synchronize the system clock.')}</Typography>
+    <Typography variant="body2" color="text.secondary">{t('Uses YYYY/MM/DD HH:mm:ss and a 24-hour clock. Saved in this browser for this address; it does not synchronize the system clock.')}</Typography>
   </Stack>;
 }

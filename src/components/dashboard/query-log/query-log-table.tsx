@@ -41,7 +41,7 @@ import { getDomainTypeName, getDomainTypeId } from './domain-type';
 import { QueryClientIdentityCell } from './client-identity-cell';
 import { ClientActivityProvider } from '@/components/dashboard/clients/client-activity-provider';
 import { useRefreshClientIdentities } from '@/components/dashboard/clients/client-identity-provider';
-import { QUERY_CLIENT_ADDRESS_WIDTH_SAMPLES } from './client-address';
+import { formatQueryClientAddress } from './client-address';
 import { GroupLabel, useGroupAppearance } from './group-label';
 import { useTableDensityPreview } from '@/components/dashboard/layout/table-density-provider';
 import { useAdaptiveColumns } from '@/components/dashboard/layout/use-adaptive-columns';
@@ -557,6 +557,7 @@ function TableQueryLogs(): React.JSX.Element {
   const [columnSizing, setColumnSizing] = React.useState(() => readColumnSizing(COLUMN_SIZING_KEY));
 
   const widthText = React.useCallback((row: DomainList, id: string) => {
+    if (id === 'client') return formatQueryClientAddress(row.client);
     if (id === 'timestamp') return formatTime(row.timestamp);
     if (id === 'domain_type') return getDomainTypeName(row.domain_type);
     if (id === 'domain_group') return row.domain_group || t('Default');
@@ -570,8 +571,7 @@ function TableQueryLogs(): React.JSX.Element {
     id: ['99999999'],
     domain: [],
     domain_type: ['AAAA', 'HTTPS'],
-    client: QUERY_CLIENT_ADDRESS_WIDTH_SAMPLES,
-    timestamp: ['8888-88-88 88:88:88'],
+    timestamp: ['8888/88/88 88:88:88'],
     ping_time: ['999.9 ms'],
     domain_group: ['DIRECT', 'PROXY', 'REJECT', t('Default')],
     is_blocked: [t('Blocked'), t('Allowed')],
@@ -621,7 +621,7 @@ function TableQueryLogs(): React.JSX.Element {
     muiFilterDateTimePickerProps: {
       ampm: false,
       timezone: timeZone,
-      format: 'YYYY-MM-DD HH:mm',
+      format: 'YYYY/MM/DD HH:mm',
     },
     muiPaginationProps: {
       disabled: isRefetching,

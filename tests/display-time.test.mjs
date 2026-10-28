@@ -12,14 +12,15 @@ new Function('exports', 'require', compiled)(exports, require);
 const { moment, formatDisplayTime, filterTimestamp, statisticsTime, nextStatisticsDay, parseTimeSettings, validTimeZone } = exports;
 
 test('display does not follow browser timezone and never changes the source instant', () => {
+  assert.equal(formatDisplayTime(Date.parse('2026-10-27T11:06:20Z'), 'Asia/Shanghai'), '2026/10/27 19:06:20');
   const instant = Date.parse('2026-10-27T12:34:56Z');
   const original = process.env.TZ;
   try {
     for (const browserZone of ['UTC', 'America/Los_Angeles', 'Asia/Tokyo']) {
       process.env.TZ = browserZone;
-      assert.equal(formatDisplayTime(instant, 'Asia/Shanghai'), '2026-10-27 20:34:56');
-      assert.equal(formatDisplayTime(instant, 'UTC'), '2026-10-27 12:34:56');
-      assert.equal(formatDisplayTime(instant, 'America/New_York'), '2026-10-27 08:34:56');
+      assert.equal(formatDisplayTime(instant, 'Asia/Shanghai'), '2026/10/27 20:34:56');
+      assert.equal(formatDisplayTime(instant, 'UTC'), '2026/10/27 12:34:56');
+      assert.equal(formatDisplayTime(instant, 'America/New_York'), '2026/10/27 08:34:56');
       assert.equal(filterTimestamp(moment.utc(instant).tz('Asia/Shanghai')), instant);
       assert.equal(filterTimestamp(moment.utc(instant)), instant);
     }
@@ -36,7 +37,7 @@ test('date picker wall time maps back to the intended UTC filters, including zer
 test('server chart strings are interpreted in source zone independently of display zone', () => {
   const bucket = statisticsTime('2026-10-27 00:00:00', 'Asia/Shanghai');
   assert.equal(bucket.valueOf(), Date.parse('2026-10-26T16:00:00Z'));
-  assert.equal(formatDisplayTime(bucket.valueOf(), 'UTC'), '2026-10-26 16:00:00');
+  assert.equal(formatDisplayTime(bucket.valueOf(), 'UTC'), '2026/10/26 16:00:00');
   assert.equal(statisticsTime('2026-10-27T00:00:00Z', 'Asia/Shanghai').valueOf(), Date.parse('2026-10-27T00:00:00Z'));
   assert.equal(nextStatisticsDay('2026-10-27', 'Asia/Shanghai'), Date.parse('2026-10-27T16:00:00Z'));
 });
@@ -67,8 +68,8 @@ test('timezone extension overrides cannot leak into display, chart buckets or fi
     };
     Date.prototype.getTimezoneOffset = () => -480;
     const instant = Date.parse('2026-10-27T12:34:56Z');
-    assert.equal(formatDisplayTime(instant, 'Asia/Shanghai'), '2026-10-27 20:34:56');
-    assert.equal(formatDisplayTime(instant, 'UTC'), '2026-10-27 12:34:56');
+    assert.equal(formatDisplayTime(instant, 'Asia/Shanghai'), '2026/10/27 20:34:56');
+    assert.equal(formatDisplayTime(instant, 'UTC'), '2026/10/27 12:34:56');
     const bucket = statisticsTime('2026-10-27 20:00:00', 'Asia/Shanghai');
     assert.equal(formatDisplayTime(bucket.valueOf(), 'Asia/Shanghai', 'HH:mm'), '20:00');
     assert.equal(filterTimestamp(bucket), Date.parse('2026-10-27T12:00:00Z'));
@@ -86,7 +87,7 @@ test('explicit timezone operations do not call native local date formatting or o
     Date.prototype.toLocaleString = () => { throw new Error('local formatting is forbidden'); };
     Date.prototype.getTimezoneOffset = () => { throw new Error('local offset is forbidden'); };
     const bucket = statisticsTime('2026-11-01', 'America/New_York');
-    assert.equal(formatDisplayTime(bucket.valueOf(), 'UTC'), '2026-11-01 04:00:00');
+    assert.equal(formatDisplayTime(bucket.valueOf(), 'UTC'), '2026/11/01 04:00:00');
     assert.equal(nextStatisticsDay('2026-11-01', 'America/New_York') - bucket.valueOf(), 25 * 3600000);
   } finally {
     Date.prototype.toLocaleString = originalLocale;
@@ -103,8 +104,8 @@ test('Change Timezone cannot override explicit zones through Intl.DateTimeFormat
       return new NativeFormatter(locales, options);
     };
     const instant = Date.parse('2026-10-27T12:34:56Z');
-    assert.equal(formatDisplayTime(instant, 'Asia/Shanghai'), '2026-10-27 20:34:56');
-    assert.equal(formatDisplayTime(instant, 'UTC'), '2026-10-27 12:34:56');
+    assert.equal(formatDisplayTime(instant, 'Asia/Shanghai'), '2026/10/27 20:34:56');
+    assert.equal(formatDisplayTime(instant, 'UTC'), '2026/10/27 12:34:56');
     assert.equal(validTimeZone('Not/A_Zone'), false);
     const bucket = statisticsTime('2026-10-27 20:00:00', 'Asia/Shanghai');
     assert.equal(bucket.valueOf(), Date.parse('2026-10-27T12:00:00Z'));
