@@ -11,7 +11,7 @@ async function load(name, dependencies = {}) {
   return exports;
 }
 const namesModule = await load('client-names');
-const { getClientIdentity, normalizeClientIp } = await load('client-identity', { './client-names': namesModule });
+const { getClientIdentity, getClientDeviceIdentity, normalizeClientIp } = await load('client-identity', { './client-names': namesModule });
 const names = { 'E2:AE:64:F7:3E:EE': 'Samsung-S22' };
 const ipv6 = 'fd66:911f:3a47:0:e167:7d3:e6d0:ba4a';
 
@@ -48,4 +48,32 @@ test('editing and removing a custom name updates the shared tooltip without chan
   assert.equal(getClientIdentity(ipv6, { ...names, 'E2:AE:64:F7:3E:EE': 'Phone' }, client).tooltip, `Phone · ${ipv6}`);
   assert.equal(getClientIdentity(ipv6, {}, client).tooltip, ipv6);
   assert.equal(client.client_ip, ipv6);
+});
+
+test('icon-only preferences resolve for both IP families without changing copied IP text', () => {
+  const icons = { 'E2:AE:64:F7:3E:EE': 'cbi:apple' };
+  for (const ip of ['10.0.0.6', ipv6]) {
+    const result = getClientDeviceIdentity(ip, {}, icons, { client_ip: ip, mac: 'e2-ae-64-f7-3e-ee', last_query_timestamp: 12345 });
+    assert.equal(result.icon, 'cbi:apple');
+    assert.equal(result.name, undefined);
+    assert.equal(result.tooltip, ip);
+    assert.equal(result.lastQueryTimestamp, 12345);
+  }
+});
+
+test('equivalent IPv6 matches icons while another IP cannot inherit an icon or activity', () => {
+  const icons = { 'E2:AE:64:F7:3E:EE': 'cbi:apple' };
+  const client = { client_ip: ipv6, mac: 'e2:ae:64:f7:3e:ee', last_query_timestamp: 12345 };
+  assert.equal(getClientDeviceIdentity('FD66:911F:3A47::E167:7D3:E6D0:BA4A', names, icons, client).icon, 'cbi:apple');
+  for (const record of [null, undefined, { ...client, client_ip: '10.0.0.7' }]) {
+    assert.deepEqual(getClientDeviceIdentity('10.0.0.6', names, icons, record), { name: undefined, tooltip: '10.0.0.6', icon: undefined, lastQueryTimestamp: undefined });
+  }
+});
+
+test('explicit no-icon and default fallback retain the existing name and copy details', () => {
+  const client = { client_ip: '10.0.0.6', mac: 'e2:ae:64:f7:3e:ee' };
+  const hidden = getClientDeviceIdentity('10.0.0.6', names, { 'E2:AE:64:F7:3E:EE': '' }, client);
+  assert.equal(hidden.icon, '');
+  assert.equal(hidden.tooltip, 'Samsung-S22 · 10.0.0.6');
+  assert.equal(getClientDeviceIdentity('10.0.0.6', names, {}, client).icon, undefined);
 });

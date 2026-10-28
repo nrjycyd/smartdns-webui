@@ -4,7 +4,8 @@ import * as React from 'react';
 import { useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
 import { smartdnsServer } from '@/lib/backend/server';
 import { useClientNames } from './client-names-provider';
-import { getClientIdentity, normalizeClientIp } from './client-identity';
+import { getClientDeviceIdentity, normalizeClientIp } from './client-identity';
+import { CLIENT_REFRESH_INTERVAL } from './client-activity';
 
 const ClientIdentityQueryContext = React.createContext<QueryClient | undefined>(undefined);
 
@@ -19,25 +20,27 @@ function useIdentityQueryClient(): QueryClient {
   return shared ?? local;
 }
 
-export function useClientIdentity(ip: string): { name: string | undefined; tooltip: string } {
+export function useClientIdentity(ip: string, withDeviceIcon = false) {
   const client = useIdentityQueryClient();
-  const { names, ready } = useClientNames();
+  const { names, icons, ready } = useClientNames();
   const key = normalizeClientIp(ip);
-  const { data } = useQuery({
+  const { data, isError, isPending } = useQuery({
     queryKey: ['client-name-lookup', key],
-    enabled: ready && Boolean(key) && Object.keys(names).length > 0,
+    enabled: ready && Boolean(key) && (withDeviceIcon || Object.keys(names).length > 0),
     staleTime: 60_000,
     gcTime: 300_000,
     retry: false,
     retryOnMount: false,
     refetchOnWindowFocus: false,
+    refetchInterval: withDeviceIcon ? CLIENT_REFRESH_INTERVAL : false,
+    refetchIntervalInBackground: false,
     queryFn: async () => {
       const result = await smartdnsServer.GetClients({ client_ip: ip, page_num: 1, page_size: 1 });
-      if (result.error) throw new Error('Client lookup failed');
-      return result.data?.client_list.find((entry) => normalizeClientIp(entry.client_ip) === key) ?? null;
+      if (result.error || !result.data) throw new Error('Client lookup failed');
+      return result.data.client_list.find((entry) => normalizeClientIp(entry.client_ip) === key) ?? null;
     },
   }, client);
-  return getClientIdentity(ip, names, data);
+  return { ...getClientDeviceIdentity(ip, names, icons, data), lookupAvailable: ready && !isError && !isPending && Boolean(data) };
 }
 
 export function useRefreshClientIdentities(): () => void {

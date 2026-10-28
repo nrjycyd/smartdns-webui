@@ -39,6 +39,7 @@ import { Delete, Domain } from '@mui/icons-material';
 import { type SnackbarOrigin, SnackbarProvider, useSnackbar } from 'notistack';
 import { getDomainTypeName, getDomainTypeId } from './domain-type';
 import { QueryClientIdentityCell } from './client-identity-cell';
+import { ClientActivityProvider } from '@/components/dashboard/clients/client-activity-provider';
 import { useRefreshClientIdentities } from '@/components/dashboard/clients/client-identity-provider';
 import { QUERY_CLIENT_ADDRESS_WIDTH_SAMPLES } from './client-address';
 import { GroupLabel, useGroupAppearance } from './group-label';
@@ -745,7 +746,7 @@ function TableQueryLogs(): React.JSX.Element {
     }),
   });
 
-  return (<MaterialReactTable table={table} />);
+  return (<ClientActivityProvider available><MaterialReactTable table={table} /></ClientActivityProvider>);
 };
 
 const queryClient = new QueryClient({

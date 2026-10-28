@@ -14,7 +14,7 @@ test('query log reserves decoration and padding once without a fixed time floor'
   assert.equal(width('is_blocked', 42, 16, 8), 86);
   assert.equal(width('is_cached', 42, 16, 8), 86);
   assert.equal(width('domain_group', 48, 16, 8), 100);
-  assert.equal(width('client', 100, 16, 8), 120);
+  assert.equal(width('client', 100, 16, 8), 160);
   assert.equal(width('query_time', 60, 16, 8), 88);
 });
 const columns = [

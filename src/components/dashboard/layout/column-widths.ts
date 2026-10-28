@@ -16,7 +16,7 @@ export function isCompactQueryLogColumn(id: string): boolean {
 
 // Body padding is added once; header measurements already include their padding.
 export function queryLogContentWidth(id: string, textWidth: number, padding: number, copyPadding: number): number {
-  const decoration = id === 'domain_group' ? 24 : id === 'is_cached' || id === 'is_blocked' ? 16 : 0;
+  const decoration = id === 'client' ? 40 : id === 'domain_group' ? 24 : id === 'is_cached' || id === 'is_blocked' ? 16 : 0;
   const copy = id === 'client' || id === 'mrt-row-actions' ? 0 : copyPadding;
   return Math.ceil(textWidth + decoration + padding + copy + 4);
 }

@@ -3,11 +3,16 @@
 import * as React from 'react';
 import Button from '@mui/material/Button';
 import Tooltip from '@mui/material/Tooltip';
+import Box from '@mui/material/Box';
 import { useSnackbar } from 'notistack';
 import { useTranslation } from 'react-i18next';
 import { useClientIdentity } from '@/components/dashboard/clients/client-identity-provider';
 import { singleLineCopySx } from '@/components/dashboard/layout/column-widths';
 import { formatQueryClientAddress } from './client-address';
+import { ClientDeviceIcon } from '@/components/dashboard/clients/client-device-icon';
+import { getClientActivity } from '@/components/dashboard/clients/client-activity';
+import { useClientActivityClock } from '@/components/dashboard/clients/client-activity-provider';
+import { useTimeDisplay } from '@/components/dashboard/layout/time-display-provider';
 
 async function copyClientDetails(text: string): Promise<void> {
   if (window.isSecureContext && navigator.clipboard?.writeText) {
@@ -31,14 +36,20 @@ async function copyClientDetails(text: string): Promise<void> {
 }
 
 export function QueryClientIdentityCell({ ip }: { ip: string }): React.JSX.Element {
-  const { name, tooltip } = useClientIdentity(ip);
+  const { name, tooltip, icon, lastQueryTimestamp, lookupAvailable } = useClientIdentity(ip, true);
+  const { now } = useClientActivityClock();
+  const { formatTime } = useTimeDisplay();
   const { enqueueSnackbar } = useSnackbar();
   const { t } = useTranslation();
+  const activity = getClientActivity(lastQueryTimestamp ?? 0, now, lookupAvailable);
+  const status = t(activity === 'active' ? 'Recently active' : activity === 'inactive' ? 'No recent DNS queries' : 'Activity unknown');
+  const lastQuery = lastQueryTimestamp && Number.isFinite(lastQueryTimestamp) && lastQueryTimestamp > 0 ? formatTime(lastQueryTimestamp) : '—';
+  const title = `${tooltip} · ${status} · ${t('Last Query Time')}: ${lastQuery} · ${t('Device activity reflects the current client record, not the time of this log entry.')}`;
   return (
-    <Tooltip title={tooltip}>
+    <Tooltip title={title}>
       <Button
         type="button" size="small" variant="text" aria-label={`${t('Copy')}: ${tooltip}`}
-        sx={{ ...singleLineCopySx, padding: 0, margin: '-0.25rem 0', fontFamily: 'inherit', fontSize: 'inherit', letterSpacing: 'inherit', color: 'inherit', textTransform: 'none', textAlign: 'left' }}
+        sx={{ ...singleLineCopySx, padding: 0, margin: '-0.25rem 0', gap: 0.75, fontFamily: 'inherit', fontSize: 'inherit', letterSpacing: 'inherit', color: 'inherit', textTransform: 'none', textAlign: 'left' }}
         onClick={async (event) => {
           event.stopPropagation();
           try {
@@ -48,7 +59,7 @@ export function QueryClientIdentityCell({ ip }: { ip: string }): React.JSX.Eleme
             enqueueSnackbar(t('Failed to copy client details'), { variant: 'error' });
           }
         }}
-      ><span>{name || formatQueryClientAddress(ip)}</span></Button>
+      ><ClientDeviceIcon icon={icon} activity={activity} /><Box component="span" sx={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis' }}>{name || formatQueryClientAddress(ip)}</Box>{activity === 'unknown' && <Box component="span" aria-label={status} sx={{ flexShrink: 0, color: 'text.secondary', fontSize: 12 }}>?</Box>}</Button>
     </Tooltip>
   );
 }
