@@ -9,9 +9,18 @@ async function load(name) {
   new Function('exports', ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText)(exports);
   return exports;
 }
-const { queryLogColumnTarget, mergeQueryLogWidths } = await load('query-log-layout');
+const { queryLogAlignment, queryLogNumeric, queryLogColumnTarget, mergeQueryLogWidths } = await load('query-log-layout');
 const { fitColumnWidths } = await load('column-widths');
 const target = (id, min) => ({ id, min, preferred: min, max: min, weight: 0 });
+
+test('Ping and query duration are centered numeric columns with no extreme Ping minimum', () => {
+  for (const id of ['ping_time', 'query_time', 'reply_code']) {
+    assert.equal(queryLogAlignment(id), 'center');
+    assert.equal(queryLogNumeric(id), true);
+  }
+  assert.equal(queryLogColumnTarget(target('ping_time', 60)).min, 64);
+  assert.equal(queryLogColumnTarget(target('ping_time', 117)).min, 120);
+});
 
 test('short columns use stable eight-pixel steps while protecting larger content', () => {
   for (const [id, size] of [['query_time', 61], ['id', 91], ['client', 113], ['timestamp', 163]]) {

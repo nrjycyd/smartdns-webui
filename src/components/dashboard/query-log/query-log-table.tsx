@@ -40,6 +40,7 @@ import { Delete, Domain } from '@mui/icons-material';
 import { type SnackbarOrigin, SnackbarProvider, useSnackbar } from 'notistack';
 import { getDomainTypeName, getDomainTypeId } from './domain-type';
 import { QueryClientIdentityCell } from './client-identity-cell';
+import { ScrollingPing } from './scrolling-ping';
 import { ClientActivityProvider } from '@/components/dashboard/clients/client-activity-provider';
 import { useClientIdentitySizingReady, useRefreshClientIdentities } from '@/components/dashboard/clients/client-identity-provider';
 import { useClientNames } from '@/components/dashboard/clients/client-names-provider';
@@ -47,7 +48,7 @@ import { formatQueryClientAddress } from './client-address';
 import { GroupLabel, useGroupAppearance } from './group-label';
 import { useTableDensityPreview } from '@/components/dashboard/layout/table-density-provider';
 import { useAdaptiveColumns } from '@/components/dashboard/layout/use-adaptive-columns';
-import { queryLogAlignment, queryLogPadding } from '@/components/dashboard/layout/query-log-layout';
+import { queryLogAlignment, queryLogNumeric, queryLogPadding } from '@/components/dashboard/layout/query-log-layout';
 
 
 interface UserApiResponse {
@@ -165,6 +166,10 @@ function TableQueryLogs(): React.JSX.Element {
         enableColumnFilterModes: false,
         size: 90,
         enableColumnActions: false,
+        muiCopyButtonProps: ({ cell }) => {
+          const value = cell.getValue<number>();
+          return { title: Number.isFinite(value) && value >= 0 ? `${value} ms` : t('No latency data available') };
+        },
         Cell: ({ cell }) => {
           const pingTime = cell.getValue<DomainList['ping_time']>();
           if (typeof pingTime !== 'number' || !Number.isFinite(pingTime) || pingTime < 0) {
@@ -174,7 +179,7 @@ function TableQueryLogs(): React.JSX.Element {
               </Tooltip>
             );
           }
-          return <span>{pingTime} ms</span>;
+          return <ScrollingPing value={`${pingTime} ms`} />;
         },
         columnFilterModeOptions: ['equals'],
       },
@@ -568,7 +573,7 @@ function TableQueryLogs(): React.JSX.Element {
     domain: [],
     domain_type: ['AAAA', 'HTTPS'],
     timestamp: ['8888/88/88 88:88:88'],
-    ping_time: ['999.9 ms'],
+    ping_time: ['99.9 ms'],
     domain_group: ['DIRECT', 'PROXY', 'REJECT', t('Default')],
     is_blocked: [t('Blocked'), t('Allowed')],
     is_cached: [t('Yes'), t('No'), t('Unknown')],
@@ -598,7 +603,7 @@ function TableQueryLogs(): React.JSX.Element {
         px: horizontalPadding,
         textAlign: queryLogAlignment(cell.column.id),
         justifyContent: queryLogAlignment(cell.column.id) === 'right' ? 'flex-end' : queryLogAlignment(cell.column.id) === 'center' ? 'center' : 'flex-start',
-        fontVariantNumeric: queryLogAlignment(cell.column.id) === 'right' ? 'tabular-nums' : undefined,
+        fontVariantNumeric: queryLogNumeric(cell.column.id) ? 'tabular-nums' : undefined,
         '& .MuiButton-root': {
           width: '100%', paddingLeft: 0, paddingRight: 0, marginLeft: 0, marginRight: 0,
           justifyContent: queryLogAlignment(cell.column.id) === 'right' ? 'flex-end' : queryLogAlignment(cell.column.id) === 'center' ? 'center' : 'flex-start',

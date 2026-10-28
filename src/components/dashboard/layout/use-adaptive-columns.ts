@@ -66,7 +66,7 @@ export function useAdaptiveColumns<T extends object>({ layout: pageLayout, colum
       const samples = referenceText?.[id] ?? (pageLayout === 'query-log' && id === 'query_time' ? data : data.slice(0, 80)).map((row) => text ? text(row, id) : String(row[id as keyof T] ?? ''));
       let content = measureColumnContent(id, samples, measure, pageLayout !== 'query-log' || referenceText?.[id] !== undefined);
       if (id === 'domain_type') content = Math.max(content, measure('AAAA'), measure('HTTPS'));
-      if (id === 'ping_time') content = Math.max(content, measure('999.9 ms'));
+      if (id === 'ping_time' && pageLayout !== 'query-log') content = Math.max(content, measure('999.9 ms'));
       let floor = Math.max(80, Math.min(300, Math.ceil(content + contentAllowance)));
       if (pageLayout === 'query-log' && id !== 'domain') {
         floor = queryLogContentWidth(id, content, cellPadding, measurement.copyPadding);
@@ -146,7 +146,8 @@ export function useAdaptiveColumns<T extends object>({ layout: pageLayout, colum
           probe.style.cssText = 'position:fixed;visibility:hidden;display:inline-block;width:max-content;white-space:pre;font:inherit;font-variant-numeric:inherit;font-feature-settings:inherit;letter-spacing:inherit;padding:0;border:0;';
           leaf.append(probe);
           try {
-            const samples = [...(referenceText?.[id] ?? []), ...data.map((row) => text ? text(row, id) : String(row[id as keyof T] ?? ''))];
+            const samples = id === 'ping_time' ? (referenceText?.[id] ?? ['99.9 ms'])
+              : [...(referenceText?.[id] ?? []), ...data.map((row) => text ? text(row, id) : String(row[id as keyof T] ?? ''))];
             const content = Math.max(0, ...samples.map((value) => { probe.textContent = value; return probe.getBoundingClientRect().width; }));
             numericWidths[id] = Math.ceil(content + queryLogPadding(density, rem) * 2 + 4);
           } finally { probe.remove(); }
