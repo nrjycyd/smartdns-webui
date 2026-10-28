@@ -3,7 +3,7 @@ import type { TableDensity } from './table-density-provider';
 
 export function queryLogAlignment(id: string): 'left' | 'center' | 'right' {
   if (['domain_type', 'domain_group', 'is_blocked', 'is_cached', 'ping_time', 'query_time', 'reply_code', 'mrt-row-actions'].includes(id)) return 'center';
-  return id === 'id' ? 'right' : 'left';
+  return 'left';
 }
 
 export function queryLogNumeric(id: string): boolean {
