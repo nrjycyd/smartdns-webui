@@ -10,12 +10,12 @@ new Function('exports', compiled)(exports);
 const { createColumnWidthTarget, fitColumnWidths, measureColumnContent } = exports;
 test('query log reserves decoration and padding once without a fixed time floor', () => {
   const { queryLogContentWidth: width } = exports;
-  assert.equal(width('timestamp', 160, 16, 8), 188);
+  assert.equal(width('timestamp', 160, 16, 8), 180);
   assert.equal(width('is_blocked', 42, 16, 8), 86);
   assert.equal(width('is_cached', 42, 16, 8), 86);
   assert.equal(width('domain_group', 48, 16, 8), 100);
   assert.equal(width('client', 100, 16, 8), 160);
-  assert.equal(width('query_time', 60, 16, 8), 88);
+  assert.equal(width('query_time', 60, 16, 8), 80);
 });
 const columns = [
   { id: 'domain', min: 160, preferred: 400, max: 700, weight: 3 },

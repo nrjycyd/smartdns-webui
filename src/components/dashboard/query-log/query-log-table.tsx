@@ -20,6 +20,7 @@ import {
 import { Box, Card, IconButton, Tooltip, Chip } from '@mui/material';
 import { createTheme, useColorScheme } from '@mui/material/styles';
 import RefreshIcon from '@mui/icons-material/Refresh';
+import WidthNormalOutlined from '@mui/icons-material/WidthNormalOutlined';
 import { moment, filterTimestamp } from '@/lib/display-time';
 import { useTimeDisplay } from '../layout/time-display-provider';
 import {
@@ -40,12 +41,13 @@ import { type SnackbarOrigin, SnackbarProvider, useSnackbar } from 'notistack';
 import { getDomainTypeName, getDomainTypeId } from './domain-type';
 import { QueryClientIdentityCell } from './client-identity-cell';
 import { ClientActivityProvider } from '@/components/dashboard/clients/client-activity-provider';
-import { useRefreshClientIdentities } from '@/components/dashboard/clients/client-identity-provider';
+import { useClientIdentitySizingReady, useRefreshClientIdentities } from '@/components/dashboard/clients/client-identity-provider';
+import { useClientNames } from '@/components/dashboard/clients/client-names-provider';
 import { formatQueryClientAddress } from './client-address';
 import { GroupLabel, useGroupAppearance } from './group-label';
 import { useTableDensityPreview } from '@/components/dashboard/layout/table-density-provider';
 import { useAdaptiveColumns } from '@/components/dashboard/layout/use-adaptive-columns';
-import { isCompactQueryLogColumn, singleLineCellSx, singleLineHeaderSx } from '@/components/dashboard/layout/column-widths';
+import { queryLogAlignment, queryLogPadding } from '@/components/dashboard/layout/query-log-layout';
 
 
 interface UserApiResponse {
@@ -65,6 +67,8 @@ function TableQueryLogs(): React.JSX.Element {
   const queryClient = useQueryClient();
   const { refresh: refreshGroupAppearance, registerGroups } = useGroupAppearance();
   const refreshClientIdentities = useRefreshClientIdentities();
+  const { names, icons } = useClientNames();
+  const [fitRevision, setFitRevision] = useState(0);
 
   const columns = useMemo<MRTColumnDef<DomainList>[]>(
     () => [
@@ -81,9 +85,6 @@ function TableQueryLogs(): React.JSX.Element {
         size: 360,
         enableColumnActions: false,
         columnFilterModeOptions: ['contains', 'equals'],
-        muiTableBodyCellProps: {
-          sx: singleLineCellSx,
-        },
         Cell: ({ cell, renderedCellValue }) => (
           <Tooltip title={cell.getValue<string>()} arrow placement="top">
             <span>{renderedCellValue}</span>
@@ -141,13 +142,7 @@ function TableQueryLogs(): React.JSX.Element {
         enableClickToCopy: false,
         muiFilterTextFieldProps: { placeholder: t('Filter by full client IP') },
         columnFilterModeOptions: ['equals'],
-        muiTableBodyCellProps: ({ table }) => ({
-          title: '',
-          sx: { ...singleLineCellSx, px: table.getState().density === 'compact' ? '0.25rem' : table.getState().density === 'comfortable' ? '0.5rem' : '0.75rem' },
-        }),
-        muiTableHeadCellProps: ({ table }) => ({
-          sx: { ...singleLineHeaderSx, px: table.getState().density === 'compact' ? '0.25rem' : table.getState().density === 'comfortable' ? '0.5rem' : '0.75rem' },
-        }),
+        muiTableBodyCellProps: { title: '' },
         Cell: ({ cell }) => <QueryClientIdentityCell ip={cell.getValue<string>()} />,
       },
       {
@@ -244,7 +239,7 @@ function TableQueryLogs(): React.JSX.Element {
         enableColumnFilterModes: false,
         Cell: ({ cell }) => {
           const queryTime = cell.getValue<number>();
-          return <span>{queryTime} ms</span>;
+          return <span data-query-duration>{queryTime} ms</span>;
         },
         columnFilterModeOptions: ['equals'],
         enableColumnActions: false,
@@ -348,6 +343,7 @@ function TableQueryLogs(): React.JSX.Element {
     data: { data = [], meta } = {},
     isError,
     isRefetching,
+    isPlaceholderData,
     isLoading,
     refetch,
   } = useQuery<UserApiResponse>({
@@ -576,11 +572,14 @@ function TableQueryLogs(): React.JSX.Element {
     domain_group: ['DIRECT', 'PROXY', 'REJECT', t('Default')],
     is_blocked: [t('Blocked'), t('Allowed')],
     is_cached: [t('Yes'), t('No'), t('Unknown')],
-    query_time: ['9999.9 ms'],
     reply_code: ['4095'],
   }), [t]);
-  const widths = useAdaptiveColumns({ layout: 'query-log', columns, data, visibility: columnVisibility, density, manualSizing: columnSizing, text: widthText, referenceText: widthReferences, actions: true, optionalColumn: 'reply_code' });
-  const compactCellSx = { px: density === 'compact' ? '0.25rem' : density === 'comfortable' ? '0.5rem' : '0.75rem' };
+  const visibleIps = React.useMemo(() => data.map((row) => row.client), [data]);
+  const identitiesReady = useClientIdentitySizingReady(visibleIps);
+  const sizingReady = identitiesReady && !isRefetching && !isLoading && !isPlaceholderData;
+  const sizingScope = React.useMemo(() => JSON.stringify([pagination, columnFilters, columnFilterFns, globalFilter, sorting, fitRevision, i18n.language, names, icons]), [pagination, columnFilters, columnFilterFns, globalFilter, sorting, fitRevision, i18n.language, names, icons]);
+  const widths = useAdaptiveColumns({ layout: 'query-log', columns, data, visibility: columnVisibility, density, manualSizing: columnSizing, text: widthText, referenceText: widthReferences, actions: true, optionalColumn: 'reply_code', resetKey: sizingScope, sizingReady });
+  const horizontalPadding = `${queryLogPadding(density) / 16}rem`;
 
   const table = useMaterialReactTable({
     onDensityChange: previewDensity,
@@ -591,19 +590,46 @@ function TableQueryLogs(): React.JSX.Element {
     layoutMode: 'grid-no-grow',
     muiTableContainerProps: { ref: widths.containerRef },
     muiTableBodyCellProps: ({ row, cell }) => ({
+      'data-query-column': cell.column.id,
+      'data-query-align': queryLogAlignment(cell.column.id),
+      align: queryLogAlignment(cell.column.id),
       sx: {
         ...widths.cellSx,
-        ...(isCompactQueryLogColumn(cell.column.id) ? compactCellSx : {}),
-        ...(cell.column.id === 'domain_type' ? {
-          textAlign: 'center',
-          justifyContent: 'center',
-          '& .MuiButton-root': { width: '100%', justifyContent: 'center' },
-        } : {}),
+        px: horizontalPadding,
+        textAlign: queryLogAlignment(cell.column.id),
+        justifyContent: queryLogAlignment(cell.column.id) === 'right' ? 'flex-end' : queryLogAlignment(cell.column.id) === 'center' ? 'center' : 'flex-start',
+        fontVariantNumeric: queryLogAlignment(cell.column.id) === 'right' ? 'tabular-nums' : undefined,
+        '& .MuiButton-root': {
+          width: '100%', paddingLeft: 0, paddingRight: 0, marginLeft: 0, marginRight: 0,
+          justifyContent: queryLogAlignment(cell.column.id) === 'right' ? 'flex-end' : queryLogAlignment(cell.column.id) === 'center' ? 'center' : 'flex-start',
+        },
       },
       title: widthText(row.original, cell.column.id),
     }),
-    muiCopyButtonProps: { sx: widths.copySx },
-    muiTableHeadCellProps: ({ column }) => ({ 'data-width-column': column.id, sx: isCompactQueryLogColumn(column.id) ? { ...widths.headerSx, ...compactCellSx } : widths.headerSx }),
+    muiCopyButtonProps: { sx: { ...widths.copySx, padding: 0, mx: 0 } },
+    muiTableHeadCellProps: ({ column }) => {
+      const alignment = queryLogAlignment(column.id);
+      const gutter = column.getCanFilter() ? 20 : 0;
+      return {
+        'data-width-column': column.id, 'data-query-align': alignment, align: alignment,
+        sx: {
+          ...widths.headerSx, px: horizontalPadding,
+          '& .Mui-TableHeadCell-Content': { display: 'block', position: 'relative', width: '100%' },
+          '& .Mui-TableHeadCell-Content-Labels': {
+            display: 'block', position: 'relative', width: '100%', boxSizing: 'border-box', overflow: 'visible',
+            paddingLeft: alignment === 'center' || alignment === 'right' ? `${gutter}px` : 0,
+            paddingRight: alignment === 'center' || alignment === 'left' ? `${gutter}px` : 0,
+          },
+          '& .Mui-TableHeadCell-Content-Wrapper': { minWidth: 0, width: '100%', textAlign: alignment, whiteSpace: 'nowrap' },
+          '& .Mui-TableHeadCell-Content-Labels > span': {
+            position: 'absolute', top: 0, bottom: 0, display: 'flex', alignItems: 'center', width: 20,
+            right: alignment === 'right' ? 'auto' : 0, left: alignment === 'right' ? 0 : 'auto',
+          },
+          '& .Mui-TableHeadCell-Content-Labels > span .MuiIconButton-root': { marginLeft: 0 },
+          '& .Mui-TableHeadCell-Content-Actions': { position: 'absolute', right: 0, top: 0 },
+        },
+      };
+    },
     enableSorting: false,
     enableColumnOrdering: true,
     enableRowActions: true,
@@ -680,6 +706,7 @@ function TableQueryLogs(): React.JSX.Element {
         });
     },
     renderTopToolbarCustomActions: () => (
+      <Box sx={{ display: 'flex', gap: 0.5 }}>
       <Tooltip arrow title={t("Refresh Data")}>
         <span>
           <IconButton
@@ -698,6 +725,10 @@ function TableQueryLogs(): React.JSX.Element {
           </IconButton>
         </span>
       </Tooltip>
+      <Tooltip arrow title={t('Fit column widths')}>
+        <span><IconButton aria-label={t('Fit column widths')} disabled={!widths.automatic || isLoading} onClick={() => { setFitRevision((value) => value + 1); }}><WidthNormalOutlined /></IconButton></span>
+      </Tooltip>
+      </Box>
     ),
     renderRowActionMenuItems: ({ closeMenu, row, table }) => {
       return [

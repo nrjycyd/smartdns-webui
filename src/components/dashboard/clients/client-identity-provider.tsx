@@ -47,3 +47,17 @@ export function useRefreshClientIdentities(): () => void {
   const client = useIdentityQueryClient();
   return React.useCallback(() => { void client.invalidateQueries({ queryKey: ['client-name-lookup'] }); }, [client]);
 }
+
+// Subscribe to readiness only; cells own the existing, deduplicated requests.
+export function useClientIdentitySizingReady(ips: readonly string[]): boolean {
+  const client = useIdentityQueryClient();
+  const keys = React.useMemo(() => new Set(ips.map((ip) => normalizeClientIp(ip))), [ips]);
+  const subscribe = React.useCallback((notify: () => void) => client.getQueryCache().subscribe((event) => {
+    if (event.query.queryKey[0] === 'client-name-lookup' && keys.has(String(event.query.queryKey[1]))) notify();
+  }), [client, keys]);
+  const snapshot = React.useCallback(() => keys.size > 0 && [...keys].every((key) => {
+    const status = client.getQueryState(['client-name-lookup', key])?.status;
+    return status === 'success' || status === 'error';
+  }), [client, keys]);
+  return React.useSyncExternalStore(subscribe, snapshot, () => false);
+}

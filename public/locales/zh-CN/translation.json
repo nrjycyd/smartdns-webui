@@ -238,5 +238,6 @@
     "Radio": "收音机",
     "Device icons are also saved by MAC in this browser.": "设备图标同样按 MAC 保存在当前浏览器中。",
     "Device icon": "设备图标",
+    "Fit column widths": "重新适配列宽",
     "Device activity reflects the current client record, not the time of this log entry.": "图标反映该 IP 当前客户端记录最近 5 分钟的 DNS 活跃状态，不代表这条日志发生时的状态。"
 }
