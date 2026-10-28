@@ -66,7 +66,18 @@ test('equivalent IPv6 matches icons while another IP cannot inherit an icon or a
   const client = { client_ip: ipv6, mac: 'e2:ae:64:f7:3e:ee', last_query_timestamp: 12345 };
   assert.equal(getClientDeviceIdentity('FD66:911F:3A47::E167:7D3:E6D0:BA4A', names, icons, client).icon, 'cbi:apple');
   for (const record of [null, undefined, { ...client, client_ip: '10.0.0.7' }]) {
-    assert.deepEqual(getClientDeviceIdentity('10.0.0.6', names, icons, record), { name: undefined, tooltip: '10.0.0.6', icon: undefined, lastQueryTimestamp: undefined });
+    assert.deepEqual(getClientDeviceIdentity('10.0.0.6', names, icons, record), { name: undefined, tooltip: '10.0.0.6', icon: undefined, customColor: undefined, lastQueryTimestamp: undefined });
+  }
+});
+
+test('custom color follows the matched MAC across IPv4 and IPv6 without leaking to another IP', () => {
+  const colors = { 'E2:AE:64:F7:3E:EE': '#3B7B91' };
+  for (const ip of ['10.0.0.6', ipv6]) {
+    const client = { client_ip: ip, mac: 'e2-ae-64-f7-3e-ee' };
+    const result = getClientDeviceIdentity(ip, names, {}, client, colors);
+    assert.equal(result.customColor, '#3B7B91');
+    assert.equal(result.tooltip, `Samsung-S22 · ${ip}`);
+    assert.equal(getClientDeviceIdentity('10.0.0.7', names, {}, client, colors).customColor, undefined);
   }
 });
 

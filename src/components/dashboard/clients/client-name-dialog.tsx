@@ -1,26 +1,34 @@
 'use client';
 
 import * as React from 'react';
-import { Alert, Box, Button, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, Stack, TextField, Typography } from '@mui/material';
+import { Alert, Box, Button, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, MenuItem, Stack, TextField, Typography } from '@mui/material';
 import { useTranslation } from 'react-i18next';
+import { useColorScheme } from '@mui/material/styles';
 import type { ClientList } from '@/lib/backend/server';
-import { getClientName, isValidClientName, isValidClientIcon, normalizeMac } from './client-names';
+import { getClientName, isValidClientName, isValidClientIcon, isValidClientIconColor, normalizeMac } from './client-names';
 import { useClientNames } from './client-names-provider';
 import { CLIENT_ICON_PRESETS, DEFAULT_CLIENT_ICON } from './client-icon-presets';
 import { ClientDeviceIcon } from './client-device-icon';
 
 export function ClientNameDialog({ client, onClose }: { client: ClientList; onClose: () => void }): React.JSX.Element {
   const { t } = useTranslation();
-  const { names, icons, ready, storageError, saveAppearance } = useClientNames();
+  const { colorScheme } = useColorScheme();
+  const { names, icons, iconColors, ready, storageError, saveAppearance } = useClientNames();
   const mac = normalizeMac(client.mac);
   const current = getClientName(names, mac);
   const [name, setName] = React.useState(current || '');
   const [icon, setIcon] = React.useState(getClientName(icons, mac) ?? DEFAULT_CLIENT_ICON);
-  const validIcon = isValidClientIcon(icon.trim());
+  const [customMode, setCustomMode] = React.useState(icon !== '' && !CLIENT_ICON_PRESETS.some((preset) => preset.id === icon));
+  const [color, setColor] = React.useState(getClientName(iconColors, mac) ?? '');
+  const validIcon = isValidClientIcon(icon.trim()) && (!customMode || Boolean(icon.trim()));
+  const validColor = color === '' || isValidClientIconColor(color.trim());
+  const disabled = !mac || !ready;
+  const preset = CLIENT_ICON_PRESETS.find((entry) => entry.id === icon) ?? CLIENT_ICON_PRESETS.find((entry) => entry.id === DEFAULT_CLIENT_ICON)!;
+  const presetColor = colorScheme === 'dark' ? preset.dark : preset.light;
 
   function save() {
     const selected = icon.trim();
-    if (mac && validIcon && saveAppearance(mac, name, selected === DEFAULT_CLIENT_ICON ? undefined : selected)) onClose();
+    if (mac && validIcon && validColor && saveAppearance(mac, name, selected === DEFAULT_CLIENT_ICON ? undefined : selected, color.trim() || undefined)) onClose();
   }
 
   return (
@@ -41,26 +49,40 @@ export function ClientNameDialog({ client, onClose }: { client: ClientList; onCl
             helperText={t('Use up to 64 characters without line breaks or control characters.')}
             slotProps={{ htmlInput: { maxLength: 64 } }}
           />
-          <Typography variant="subtitle2">{t('Device icon')}</Typography>
-          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(3, minmax(0, 1fr))', sm: 'repeat(4, minmax(0, 1fr))' }, gap: 1 }}>
-            {CLIENT_ICON_PRESETS.map((preset) => <Button key={preset.id} variant={icon === preset.id ? 'outlined' : 'text'} aria-pressed={icon === preset.id} disabled={!mac || !ready} onClick={() => { setIcon(preset.id); }} sx={{ minWidth: 0, minHeight: 64, flexDirection: 'column', gap: 0.75, textTransform: 'none', color: 'text.primary', fontSize: 12 }}>
-              <ClientDeviceIcon icon={preset.id} />{t(preset.label)}
-            </Button>)}
-            <Button variant={icon === '' ? 'outlined' : 'text'} aria-pressed={icon === ''} disabled={!mac || !ready} onClick={() => { setIcon(''); }} sx={{ minWidth: 0, textTransform: 'none' }}>{t('No icon')}</Button>
-          </Box>
-          <TextField
+          <TextField select fullWidth label={t('Device icon')} value={customMode ? 'custom' : icon} disabled={disabled}
+            onChange={(event) => { const selected = event.target.value; setCustomMode(selected === 'custom'); setIcon(selected === 'custom' ? '' : selected); }}
+            slotProps={{ select: { MenuProps: { slotProps: { paper: { sx: { maxHeight: 320 } } } } } }}>
+            <MenuItem value=""><Typography>{t('No icon')}</Typography></MenuItem>
+            {CLIENT_ICON_PRESETS.map((preset) => <MenuItem key={preset.id} value={preset.id}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}><ClientDeviceIcon icon={preset.id} />{t(preset.label)}</Box>
+            </MenuItem>)}
+            <MenuItem value="custom">{t('Custom Iconify icon')}</MenuItem>
+          </TextField>
+          {customMode && <TextField
             fullWidth label={t('Iconify icon name')} value={icon} disabled={!mac || !ready}
             onChange={(event) => { setIcon(event.target.value); }} error={!validIcon}
             helperText={validIcon ? t('Built-in icons work locally. Other icons require access to the Iconify API.') : t('Enter an icon name such as mdi:devices.')}
             slotProps={{ htmlInput: { maxLength: 128 } }}
-          />
+          />}
+          <Stack spacing={0.75}>
+            <Stack direction="row" spacing={1} sx={{ alignItems: 'flex-start' }}>
+              <Box component="input" type="color" aria-label={t('Choose icon color')} value={validColor && color.trim() ? color.trim() : presetColor} disabled={disabled || !icon.trim()}
+                onChange={(event) => { setColor(event.target.value.toUpperCase()); }}
+                sx={{ width: 48, height: 56, flexShrink: 0, p: 0.5, border: '1px solid', borderColor: 'divider', borderRadius: 1, bgcolor: 'background.paper' }} />
+              <TextField fullWidth label={t('Icon color')} placeholder={t('Default color')} value={color} disabled={disabled || !icon.trim()}
+                onChange={(event) => { setColor(event.target.value); }} error={!validColor}
+                slotProps={{ htmlInput: { maxLength: 7, spellCheck: false } }} />
+              <Button disabled={disabled || !color} onClick={() => { setColor(''); }} sx={{ flexShrink: 0, mt: 1 }}>{t('Reset color')}</Button>
+            </Stack>
+            <Typography variant="caption" color={validColor ? 'text.secondary' : 'error'}>{validColor ? t('Custom color applies to active icons in both themes. Inactive icons stay gray.') : t('Enter a color such as #3B7B91.')}</Typography>
+          </Stack>
           <Stack spacing={1}>
             <Typography variant="subtitle2">{t('Live preview')}</Typography>
             <Stack direction="row" spacing={2} useFlexGap sx={{ flexWrap: 'wrap' }}>
               {(['active', 'inactive'] as const).map((activity) => <Stack key={activity} spacing={0.75}>
                 <Typography variant="caption" color="text.secondary">{t(activity === 'active' ? 'Recently active' : 'No recent DNS queries')}</Typography>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, overflowWrap: 'anywhere' }}>
-                  {validIcon && <ClientDeviceIcon icon={icon.trim()} activity={activity} />}<span>{name.trim() || client.hostname || '—'}</span>
+                  {validIcon && <ClientDeviceIcon icon={icon.trim()} customColor={color.trim()} activity={activity} />}<span>{name.trim() || client.hostname || '—'}</span>
                 </Box>
               </Stack>)}
             </Stack>
@@ -71,7 +93,7 @@ export function ClientNameDialog({ client, onClose }: { client: ClientList; onCl
       <DialogActions sx={{ flexWrap: 'wrap', gap: 1 }}>
         <Button disabled={!mac || !ready || !name} onClick={() => { setName(''); }}>{t('Restore server hostname')}</Button>
         <Button onClick={onClose}>{t('Cancel')}</Button>
-        <Button variant="contained" disabled={!mac || !ready || !isValidClientName(name) || !validIcon} onClick={save}>{t('Save changes')}</Button>
+        <Button variant="contained" disabled={disabled || !isValidClientName(name) || !validIcon || !validColor} onClick={save}>{t('Save changes')}</Button>
       </DialogActions>
     </Dialog>
   );

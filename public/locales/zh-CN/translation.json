@@ -239,5 +239,12 @@
     "Device icons are also saved by MAC in this browser.": "设备图标同样按 MAC 保存在当前浏览器中。",
     "Device icon": "设备图标",
     "Fit column widths": "重新适配列宽",
-    "Device activity reflects the current client record, not the time of this log entry.": "图标反映该 IP 当前客户端记录最近 5 分钟的 DNS 活跃状态，不代表这条日志发生时的状态。"
+    "Device activity reflects the current client record, not the time of this log entry.": "图标反映该 IP 当前客户端记录最近 5 分钟的 DNS 活跃状态，不代表这条日志发生时的状态。",
+    "Custom Iconify icon": "自定义 Iconify 图标",
+    "Choose icon color": "选择图标颜色",
+    "Default color": "默认配色",
+    "Reset color": "恢复配色",
+    "Custom color applies to active icons in both themes. Inactive icons stay gray.": "自定义颜色用于深浅主题中的活跃图标，近期无查询时仍显示灰色。",
+    "Enter a color such as #3B7B91.": "请输入六位十六进制颜色，例如 #3B7B91。",
+    "NAS": "通用 NAS"
 }

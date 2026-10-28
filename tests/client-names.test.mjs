@@ -8,6 +8,7 @@ const compiled = ts.transpileModule(source, { compilerOptions: { module: ts.Modu
 const exports = {};
 new Function('exports', compiled)(exports);
 const { normalizeMac, getClientName, parseClientNames, serializeClientNames, updateClientName, parseClientIcons, updateClientIcon } = exports;
+const { parseClientIconColors, updateClientIconColor } = exports;
 
 test('the same MAC uses one name across case, formatting, and different IP records', () => {
   let names = updateClientName({}, 'aa-bb-cc-dd-ee-02', '  客厅手机  ');
@@ -77,5 +78,29 @@ test('invalid icon storage and non-Iconify identifiers are rejected before savin
   }
   for (const icons of [null, [], 'bad', { '__bad__': 'mdi:devices' }, { 'AA:BB:CC:DD:EE:02': 123 }]) {
     assert.throws(() => parseClientIcons(JSON.stringify({ version: 1, names: {}, icons })));
+  }
+});
+
+test('custom colors share normalized MACs and round trip with existing names and icons', () => {
+  const mac = 'AA:BB:CC:DD:EE:02';
+  const colors = updateClientIconColor({}, 'aa-bb-cc-dd-ee-02', '#a84250');
+  const source = serializeClientNames({ [mac]: 'NAS' }, { [mac]: 'cbi:unraid' }, colors);
+  assert.deepEqual(parseClientIconColors(source), { [mac]: '#A84250' });
+  assert.equal(getClientName(parseClientNames(source), mac), 'NAS');
+  assert.equal(getClientName(parseClientIcons(source), mac), 'cbi:unraid');
+  assert.deepEqual(parseClientIconColors(serializeClientNames({}, {})), {});
+  assert.deepEqual(parseClientIconColors(null), {});
+  assert.deepEqual(updateClientIconColor(colors, mac, undefined), {});
+  assert.equal(JSON.parse(serializeClientNames({}, {}, {})).iconColors, undefined);
+});
+
+test('invalid color records are rejected so broken preferences cannot be overwritten', () => {
+  const mac = 'AA:BB:CC:DD:EE:02';
+  for (const value of ['', 'red', '#123', '#12345678', '#12345z', 'url(x)', '#123456\n']) {
+    assert.throws(() => updateClientIconColor({}, mac, value));
+    assert.throws(() => parseClientIconColors(JSON.stringify({ version: 1, names: {}, iconColors: { [mac]: value } })));
+  }
+  for (const iconColors of [null, [], 'bad', { bad: '#123456' }, { [mac]: 123 }]) {
+    assert.throws(() => parseClientIconColors(JSON.stringify({ version: 1, names: {}, iconColors })));
   }
 });

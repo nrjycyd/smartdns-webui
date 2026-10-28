@@ -214,5 +214,12 @@
   "Statistics source timezone": "Quellzeitzone der Statistik",
   "Set this to the SmartDNS server timezone. Chart dates have no timezone; daily counts keep the server day boundaries.": "Zeitzone des SmartDNS-Servers einstellen. Statistikdaten enthalten keine Zeitzone; Tagesgrenzen bleiben die des Servers.",
   "Uses YYYY-MM-DD HH:mm:ss and a 24-hour clock. Saved in this browser for this address; it does not synchronize the system clock.": "Format YYYY-MM-DD HH:mm:ss im 24-Stunden-System. Wird für diese Adresse im Browser gespeichert; keine Synchronisierung der Systemuhr.",
-  "Server daily bucket": "Server-Tagesstatistik"
+  "Server daily bucket": "Server-Tagesstatistik",
+  "Custom Iconify icon": "Eigenes Iconify-Symbol",
+  "Choose icon color": "Symbolfarbe auswählen",
+  "Default color": "Standardfarbe",
+  "Reset color": "Farbe zurücksetzen",
+  "Custom color applies to active icons in both themes. Inactive icons stay gray.": "Die eigene Farbe gilt in beiden Designs für aktive Symbole. Inaktive Symbole bleiben grau.",
+  "Enter a color such as #3B7B91.": "Eine sechsstellige Hex-Farbe eingeben, z. B. #3B7B91.",
+  "NAS": "NAS"
 }

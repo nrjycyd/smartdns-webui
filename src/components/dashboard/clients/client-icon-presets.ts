@@ -60,6 +60,36 @@ export const CLIENT_ICON_PRESETS = [
     "dark": "#8BB7F5"
   },
   {
+    "id": "cbi:synology-dsm",
+    "label": "Synology DSM",
+    "light": "#3B7B91",
+    "dark": "#8FD1E3"
+  },
+  {
+    "id": "cbi:mikrotik",
+    "label": "MikroTik",
+    "light": "#A84250",
+    "dark": "#EC8796"
+  },
+  {
+    "id": "cbi:qnap-short-logo",
+    "label": "QNAP",
+    "light": "#195B9E",
+    "dark": "#76B7F1"
+  },
+  {
+    "id": "cbi:nas-v2",
+    "label": "NAS",
+    "light": "#258578",
+    "dark": "#72CBBE"
+  },
+  {
+    "id": "cbi:unraid",
+    "label": "Unraid",
+    "light": "#E46D2A",
+    "dark": "#FFAB73"
+  },
+  {
     "id": "mdi:devices",
     "label": "Generic device",
     "light": "#527C8A",

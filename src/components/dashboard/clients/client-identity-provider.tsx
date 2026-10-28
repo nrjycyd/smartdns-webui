@@ -22,7 +22,7 @@ function useIdentityQueryClient(): QueryClient {
 
 export function useClientIdentity(ip: string, withDeviceIcon = false) {
   const client = useIdentityQueryClient();
-  const { names, icons, ready } = useClientNames();
+  const { names, icons, iconColors, ready } = useClientNames();
   const key = normalizeClientIp(ip);
   const { data, isError, isPending } = useQuery({
     queryKey: ['client-name-lookup', key],
@@ -40,7 +40,7 @@ export function useClientIdentity(ip: string, withDeviceIcon = false) {
       return result.data.client_list.find((entry) => normalizeClientIp(entry.client_ip) === key) ?? null;
     },
   }, client);
-  return { ...getClientDeviceIdentity(ip, names, icons, data), lookupAvailable: ready && !isError && !isPending && Boolean(data) };
+  return { ...getClientDeviceIdentity(ip, names, icons, data, iconColors), lookupAvailable: ready && !isError && !isPending && Boolean(data) };
 }
 
 export function useRefreshClientIdentities(): () => void {

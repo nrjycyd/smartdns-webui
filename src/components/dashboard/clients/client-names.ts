@@ -69,6 +69,34 @@ export function updateClientIcon(icons: ClientNames, mac: string, icon: string |
   return next;
 }
 
-export function serializeClientNames(names: ClientNames, icons?: ClientNames): string {
-  return JSON.stringify({ version: 1, names, ...(icons && Object.keys(icons).length > 0 ? { icons } : {}) });
+export function isValidClientIconColor(value: string): boolean {
+  return /^#[\da-f]{6}$/i.test(value);
+}
+
+export function parseClientIconColors(source: string | null): ClientNames {
+  parseClientNames(source);
+  if (source === null) return {};
+  const data = JSON.parse(source) as { iconColors?: unknown };
+  if (data.iconColors === undefined) return {};
+  if (!data.iconColors || typeof data.iconColors !== 'object' || Array.isArray(data.iconColors)) throw new Error('Invalid client icon colors');
+  const colors: Record<string, string> = {};
+  for (const [mac, color] of Object.entries(data.iconColors)) {
+    const key = normalizeMac(mac);
+    if (!key || typeof color !== 'string' || !isValidClientIconColor(color)) throw new Error('Invalid client icon color');
+    colors[key] = color.toUpperCase();
+  }
+  return colors;
+}
+
+export function updateClientIconColor(colors: ClientNames, mac: string, color: string | undefined): ClientNames {
+  const key = normalizeMac(mac);
+  if (!key || (color !== undefined && !isValidClientIconColor(color))) throw new Error('Invalid client icon color');
+  const next = { ...colors };
+  if (color === undefined) delete next[key];
+  else next[key] = color.toUpperCase();
+  return next;
+}
+
+export function serializeClientNames(names: ClientNames, icons?: ClientNames, iconColors?: ClientNames): string {
+  return JSON.stringify({ version: 1, names, ...(icons && Object.keys(icons).length > 0 ? { icons } : {}), ...(iconColors && Object.keys(iconColors).length > 0 ? { iconColors } : {}) });
 }

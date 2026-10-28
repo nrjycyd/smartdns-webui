@@ -36,7 +36,7 @@ async function copyClientDetails(text: string): Promise<void> {
 }
 
 export function QueryClientIdentityCell({ ip }: { ip: string }): React.JSX.Element {
-  const { name, tooltip, icon, lastQueryTimestamp, lookupAvailable } = useClientIdentity(ip, true);
+  const { name, tooltip, icon, customColor, lastQueryTimestamp, lookupAvailable } = useClientIdentity(ip, true);
   const { now } = useClientActivityClock();
   const { formatTime } = useTimeDisplay();
   const { enqueueSnackbar } = useSnackbar();
@@ -60,7 +60,7 @@ export function QueryClientIdentityCell({ ip }: { ip: string }): React.JSX.Eleme
             enqueueSnackbar(t('Failed to copy client details'), { variant: 'error' });
           }
         }}
-      ><ClientDeviceIcon icon={icon} activity={activity} /><Box component="span" data-query-client-text sx={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis' }}>{name || formatQueryClientAddress(ip)}</Box>{activity === 'unknown' && <Box component="span" data-query-client-unknown aria-label={status} sx={{ flexShrink: 0, color: 'text.secondary', fontSize: 12 }}>?</Box>}</Button>
+      ><ClientDeviceIcon icon={icon} customColor={customColor} activity={activity} /><Box component="span" data-query-client-text sx={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis' }}>{name || formatQueryClientAddress(ip)}</Box>{activity === 'unknown' && <Box component="span" data-query-client-unknown aria-label={status} sx={{ flexShrink: 0, color: 'text.secondary', fontSize: 12 }}>?</Box>}</Button>
     </Tooltip>
   );
 }

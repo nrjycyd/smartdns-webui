@@ -18,11 +18,12 @@ export function getClientIdentity(ip: string, names: ClientNames, client?: { cli
   return { name, tooltip: name ? `${name} · ${ip}` : ip };
 }
 
-export function getClientDeviceIdentity(ip: string, names: ClientNames, icons: ClientNames, client?: { client_ip: string; mac?: string | null; last_query_timestamp?: number } | null): { name: string | undefined; tooltip: string; icon: string | undefined; lastQueryTimestamp: number | undefined } {
+export function getClientDeviceIdentity(ip: string, names: ClientNames, icons: ClientNames, client?: { client_ip: string; mac?: string | null; last_query_timestamp?: number } | null, iconColors: ClientNames = {}): { name: string | undefined; tooltip: string; icon: string | undefined; customColor: string | undefined; lastQueryTimestamp: number | undefined } {
   const matches = client && normalizeClientIp(client.client_ip) === normalizeClientIp(ip);
   return {
     ...getClientIdentity(ip, names, client),
     icon: matches ? getClientName(icons, client.mac) : undefined,
+    customColor: matches ? getClientName(iconColors, client.mac) : undefined,
     lastQueryTimestamp: matches ? client.last_query_timestamp : undefined,
   };
 }
