@@ -177,6 +177,7 @@ function TableClients(): React.JSX.Element {
 
   const {
     data: { data = [], meta } = {},
+    dataUpdatedAt,
     isError,
     isRefetching,
     isPlaceholderData,
@@ -496,7 +497,7 @@ function TableClients(): React.JSX.Element {
     }),
   });
 
-  return (<ClientActivityProvider available={!isError && !isLoading && !isPlaceholderData}><MaterialReactTable table={table} />{editingClient && <ClientNameDialog key={editingClient.id} client={editingClient} onClose={() => { setEditingClient(null); }} />}</ClientActivityProvider>);
+  return (<ClientActivityProvider available={!isError && !isLoading && !isPlaceholderData} observedAt={dataUpdatedAt}><MaterialReactTable table={table} />{editingClient && <ClientNameDialog key={editingClient.id} client={editingClient} onClose={() => { setEditingClient(null); }} />}</ClientActivityProvider>);
 };
 
 const queryClient = new QueryClient({

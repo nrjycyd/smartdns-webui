@@ -14,11 +14,11 @@ import { useTimeDisplay } from '../layout/time-display-provider';
 
 export function ClientHostname({ client }: { client: ClientList }): React.JSX.Element {
   const { names, icons, iconColors, ready } = useClientNames();
-  const { now, available } = useClientActivityClock();
+  const { now, available, observedAt } = useClientActivityClock();
   const { formatTime } = useTimeDisplay();
   const { t } = useTranslation();
   const custom = getClientName(names, client.mac);
-  const activity = getClientActivity(client.last_query_timestamp, now, available);
+  const activity = getClientActivity(client.last_query_timestamp, now, available, observedAt);
   const status = t(activity === 'active' ? 'Recently active' : activity === 'inactive' ? 'No recent DNS queries' : 'Activity unknown');
   const lastQuery = Number.isFinite(client.last_query_timestamp) && client.last_query_timestamp > 0 ? formatTime(client.last_query_timestamp) : '—';
   const title = [custom || client.hostname || '—', custom ? t('Server hostname: {{name}}', { name: client.hostname || '—' }) : '', status, `${t('Last Query Time')}: ${lastQuery}`, t('Activity is based on DNS queries within 5 minutes, not device connectivity.')].filter(Boolean).join(' · ');

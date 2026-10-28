@@ -25,3 +25,24 @@ test('request failures, missing timestamps and clock anomalies are unknown rathe
   }
   assert.equal(getClientActivity(now, 0), 'unknown');
 });
+
+test('fresh client responses use their receipt time when the periodic clock is behind', () => {
+  const received = now + 20_000;
+  const timestamp = received - 1;
+  assert.equal(getClientActivity(timestamp, now), 'unknown');
+  assert.equal(getClientActivity(timestamp, now, true, received), 'active');
+  assert.equal(getClientActivity(timestamp, received + 300_000, true, received), 'inactive');
+  assert.equal(getClientActivity(received - 300_000, now, true, received), 'active');
+  assert.equal(getClientActivity(received - 300_001, now, true, received), 'inactive');
+});
+
+test('receipt time never disguises failed requests, missing timestamps or real future timestamps', () => {
+  const received = now + 20_000;
+  assert.equal(getClientActivity(received - 1, now, false, received), 'unknown');
+  assert.equal(getClientActivity(received + 1, now, true, received), 'unknown');
+  assert.equal(getClientActivity(0, now, true, received), 'unknown');
+  for (const invalid of [0, -1, NaN, Infinity]) {
+    assert.equal(getClientActivity(now - 1, now, true, invalid), 'active');
+    assert.equal(getClientActivity(now + 1, now, true, invalid), 'unknown');
+  }
+});

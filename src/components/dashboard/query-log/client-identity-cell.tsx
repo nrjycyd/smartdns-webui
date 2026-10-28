@@ -36,12 +36,12 @@ async function copyClientDetails(text: string): Promise<void> {
 }
 
 export function QueryClientIdentityCell({ ip }: { ip: string }): React.JSX.Element {
-  const { name, tooltip, icon, customColor, lastQueryTimestamp, lookupAvailable } = useClientIdentity(ip, true);
+  const { name, tooltip, icon, customColor, lastQueryTimestamp, observedAt, lookupAvailable } = useClientIdentity(ip, true);
   const { now } = useClientActivityClock();
   const { formatTime } = useTimeDisplay();
   const { enqueueSnackbar } = useSnackbar();
   const { t } = useTranslation();
-  const activity = getClientActivity(lastQueryTimestamp ?? 0, now, lookupAvailable);
+  const activity = getClientActivity(lastQueryTimestamp ?? 0, now, lookupAvailable, observedAt);
   const status = t(activity === 'active' ? 'Recently active' : activity === 'inactive' ? 'No recent DNS queries' : 'Activity unknown');
   const lastQuery = lastQueryTimestamp && Number.isFinite(lastQueryTimestamp) && lastQueryTimestamp > 0 ? formatTime(lastQueryTimestamp) : '—';
   const title = `${tooltip} · ${status} · ${t('Last Query Time')}: ${lastQuery} · ${t('Device activity reflects the current client record, not the time of this log entry.')}`;
