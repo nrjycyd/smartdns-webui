@@ -124,13 +124,6 @@ export interface Mertrics {
     [key: string]: number | string | boolean,
 }
 
-export interface OverViewStats {
-    server_name: string,
-    db_size: number,
-    startup_timestamp: number,
-    [key: string]: number | string,
-}
-
 export interface TopClients {
     client_ip: string,
     query_count: number,
@@ -563,11 +556,6 @@ class SmartDNSAPI {
             return { error: ret.error };
         }
         return { data: ret.data?.domains };
-    }
-
-    async GetOverView(): Promise<{ error?: ServerError, data?: OverViewStats | null }> {
-        const ret = await this.server.fetch<OverViewStats>('/api/stats/overview', 'GET', {}, {});
-        return ret;
     }
 
     async GetHourlyQueryCount(): Promise<{ error?: ServerError, data?: HourlyQueryCountResponse | null }> {

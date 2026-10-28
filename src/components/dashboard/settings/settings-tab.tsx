@@ -38,7 +38,7 @@ export default function SettingsTab(): React.JSX.Element {
   const { t } = useTranslation();
   const [value, setValue] = React.useState('0');
 
-  const handleChange = (event: React.SyntheticEvent, newValue: string): void => {
+  const handleChange = (_event: React.SyntheticEvent, newValue: string): void => {
     setValue(newValue);
   };
 

@@ -178,7 +178,7 @@ npm run dev
 检查与构建：
 
 ```bash
-node --test tests/*.test.mjs
+npm test
 npm run lint
 npm run typecheck
 npm run build

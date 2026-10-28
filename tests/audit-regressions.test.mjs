@@ -194,3 +194,48 @@ test('cursor optimization is scoped to adjacent pages of the same filter and pag
     assert.deepEqual(getPageCursorParams(cursor, page, size, scope), {});
   }
 });
+
+test('invalid local session envelopes never produce a user', async () => {
+  const fixture = await authFixture();
+  for (const value of [{ token: 'x' }, { token: 'x', expiresAt: 'invalid' }, { token: '', expiresAt: Date.now() + 60000 }, null, {}]) {
+    fixture.values.set('custom-auth-token', JSON.stringify(value));
+    assert.equal((await fixture.authClient.getUser()).data, null);
+  }
+});
+
+test('metrics cleanup prevents reconnects and messages from a previous mount', async () => {
+  const sockets = [], timers = new Map(); let nextTimer = 0, messages = 0, opens = 0;
+  class Socket {
+    constructor(url) { assert.equal(url, 'ws://test/api/stats/metrics'); sockets.push(this); }
+    close() { this.closed = true; }
+  }
+  const { openMetricsStream } = await load('components/dashboard/overview/metrics-stream.ts', {
+    WebSocket: Socket,
+    setTimeout: (fn, delay) => { assert.equal(delay, 3000); timers.set(++nextTimer, fn); return nextTimer; },
+    clearTimeout: id => timers.delete(id),
+  });
+  const connect = () => openMetricsStream('ws://test/api/stats/metrics', () => opens++, () => messages++);
+  const stopOld = connect(); sockets[0].onopen(); assert.equal(opens, 1);
+  stopOld(); const stopNew = connect();
+  sockets[0].onclose(); sockets[0].onmessage({}); sockets[0].onopen();
+  assert.equal(timers.size, 0); assert.equal(messages, 0); assert.equal(opens, 1);
+  sockets[1].onmessage({}); assert.equal(messages, 1);
+  sockets[1].onclose(); assert.equal(timers.size, 1);
+  const callback = [...timers.values()][0]; timers.clear(); callback();
+  assert.equal(sockets.length, 3);
+  sockets[2].onclose(); assert.equal(timers.size, 1);
+  stopNew(); assert.equal(timers.size, 0); assert(sockets[2].closed);
+  callback(); assert.equal(sockets.length, 3);
+});
+
+test('service worker registration requires production and a secure context without intercepting installation', async () => {
+  for (const [mode, secure, expected] of [['production', true, 1], ['production', false, 0], ['development', true, 0]]) {
+    let registrations = 0;
+    const { ServiceWorkerRegistration } = await load('components/core/service-worker-registration.tsx', {
+      process: { env: { NODE_ENV: mode } },
+      window: { isSecureContext: secure, addEventListener: () => assert.fail('Browser installation must not be intercepted') },
+      navigator: { serviceWorker: { register: async (url, options) => { assert.equal(url, '/sw.js'); assert.equal(options.scope, '/'); registrations++; } } },
+    }, { react: { useEffect: fn => fn() } });
+    assert.equal(ServiceWorkerRegistration(), null); assert.equal(registrations, expected);
+  }
+});

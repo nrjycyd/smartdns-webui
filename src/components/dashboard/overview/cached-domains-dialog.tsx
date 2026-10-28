@@ -28,13 +28,15 @@ export const CachedDomainsDialog = React.memo(function CachedDomainsDialog({ ope
     const [searchTerm, setSearchTerm] = React.useState('');
     const [page, setPage] = React.useState(1);
     const [rowsPerPage, setRowsPerPage] = React.useState(() => {
-        const saved = localStorage.getItem('cachedDomainsRowsPerPage');
-        const parsed = saved ? Number.parseInt(saved, 10) : 20;
-        return [10, 20, 50, 100].includes(parsed) ? parsed : 20;
+        try {
+            const saved = localStorage.getItem('cachedDomainsRowsPerPage');
+            const parsed = saved ? Number(saved) : 20;
+            return [10, 20, 50, 100].includes(parsed) ? parsed : 20;
+        } catch { return 20; }
     });
 
     React.useEffect(() => {
-        localStorage.setItem('cachedDomainsRowsPerPage', rowsPerPage.toString());
+        try { localStorage.setItem('cachedDomainsRowsPerPage', rowsPerPage.toString()); } catch { /* Keep the dialog usable without storage. */ }
     }, [rowsPerPage]);
 
     const handleSort = (property: typeof orderBy) => {

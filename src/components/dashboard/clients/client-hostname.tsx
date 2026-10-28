@@ -21,7 +21,7 @@ export function ClientHostname({ client }: { client: ClientList }): React.JSX.El
   const activity = getClientActivity(client.last_query_timestamp, now, available, observedAt);
   const status = t(activity === 'active' ? 'Recently active' : activity === 'inactive' ? 'No recent DNS queries' : 'Activity unknown');
   const lastQuery = Number.isFinite(client.last_query_timestamp) && client.last_query_timestamp > 0 ? formatTime(client.last_query_timestamp) : '—';
-  const title = [custom || client.hostname || '—', custom ? t('Server hostname: {{name}}', { name: client.hostname || '—' }) : '', status, `${t('Last Query Time')}: ${lastQuery}`, t('Activity is based on DNS queries within 5 minutes, not device connectivity.')].filter(Boolean).join(' · ');
+  const title = [custom || client.hostname || '—', custom ? t('Server hostname: {{name}}', { name: client.hostname || '—' }) : '', status, `${t('Last Query Time')}: ${lastQuery}`].filter(Boolean).join(' · ');
   return <Tooltip title={title}><Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.75, minWidth: 0, maxWidth: '100%' }}>
     {ready && <ClientDeviceIcon icon={getClientName(icons, client.mac)} customColor={getClientName(iconColors, client.mac)} activity={activity} />}
     <Box component="span" sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{custom || client.hostname || '—'}</Box>

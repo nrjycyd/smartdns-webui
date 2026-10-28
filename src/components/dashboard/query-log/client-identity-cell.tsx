@@ -44,7 +44,7 @@ export function QueryClientIdentityCell({ ip }: { ip: string }): React.JSX.Eleme
   const activity = getClientActivity(lastQueryTimestamp ?? 0, now, lookupAvailable, observedAt);
   const status = t(activity === 'active' ? 'Recently active' : activity === 'inactive' ? 'No recent DNS queries' : 'Activity unknown');
   const lastQuery = lastQueryTimestamp && Number.isFinite(lastQueryTimestamp) && lastQueryTimestamp > 0 ? formatTime(lastQueryTimestamp) : '—';
-  const title = `${tooltip} · ${status} · ${t('Last Query Time')}: ${lastQuery} · ${t('Device activity reflects the current client record, not the time of this log entry.')}`;
+  const title = `${tooltip} · ${status} · ${t('Current last query')}: ${lastQuery}`;
   return (
     <Tooltip title={title}>
       <Button

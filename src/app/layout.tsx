@@ -7,7 +7,7 @@ import '@/styles/global.css';
 import { UserProvider } from '@/contexts/user-context';
 import { LocalizationProvider } from '@/components/core/localization-provider';
 import { ThemeProvider } from '@/components/core/theme-provider/theme-provider';
-import { PwaProvider } from '@/components/core/pwa-provider';
+import { ServiceWorkerRegistration } from '@/components/core/service-worker-registration';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -27,7 +27,7 @@ export default function Layout({ children }: LayoutProps): React.JSX.Element {
       <body>
         <LocalizationProvider>
           <UserProvider>
-            <ThemeProvider><PwaProvider>{children}</PwaProvider></ThemeProvider>
+            <ThemeProvider><ServiceWorkerRegistration />{children}</ThemeProvider>
           </UserProvider>
         </LocalizationProvider>
       </body>

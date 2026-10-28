@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import Grid from '@mui/material/Grid';
+import { openMetricsStream } from './metrics-stream';
 import { MetricsCard } from '@/components/dashboard/overview/metrics-card';
 import { type Mertrics } from '@/lib/backend/server';
 import { StreamLineChart } from './card-stream-linechart';
@@ -40,7 +41,6 @@ const totalCards = [
             <AdaptiveNumber value={value as number | string} />
         ),
         icon: BlockOutlinedIcon,
-        onClick: undefined,
     },
     {
         accessor: 'qps',
@@ -64,7 +64,7 @@ const totalCards = [
         accessor: 'cache_number',
         title: 'Cache Number',
         bgcolor: 'var(--mui-palette-dashboard-chartCacheNumber)',
-        render: (value: number | string | boolean, dataIndex?: number, cardata?: unknown) => {
+        render: (value: number | string | boolean, _dataIndex?: number, cardata?: unknown) => {
             if (!cardata || typeof cardata !== 'object') {
                 return <span>{value}</span>
             }
@@ -101,7 +101,6 @@ const totalCards = [
             },
             loading: false,
         },
-        onClick: undefined,
     },
     {
         accessor: 'avg_query_time',
@@ -119,25 +118,9 @@ export function MetricsCards(): React.JSX.Element {
     const [loading, setLoading] = React.useState<boolean>(true);
     const [dataIndex, setDataIndex] = React.useState<number>(0);
     const [cacheDialogOpen, setCacheDialogOpen] = React.useState<boolean>(false);
-    const reconnectTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
-    const socketRef = React.useRef<WebSocket | null>(null);
-    const doClose = React.useRef<boolean>(false);
     const { enqueueSnackbar } = useSnackbar();
     const router = useRouter();
     const [isSuspended, setIsSuspended] = React.useState<boolean>(false);
-    const connectRef = React.useRef<() => void>(() => { /* will be set below */ });
-
-    function close(): void {
-        if (reconnectTimeoutRef.current) {
-            clearTimeout(reconnectTimeoutRef.current);
-            reconnectTimeoutRef.current = null;
-        }
-
-        if (socketRef.current) {
-            socketRef.current.close();
-            socketRef.current = null;
-        }
-    }
 
     const cardMessage = React.useCallback(async (msg: string) => {
         enqueueSnackbar(msg, { style: { whiteSpace: 'pre-line' } });
@@ -147,63 +130,19 @@ export function MetricsCards(): React.JSX.Element {
         setCacheDialogOpen(false);
     }, []);
 
-    const connect = React.useCallback((): void => {
+    React.useEffect(() => {
         const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
-        const socket = new WebSocket(`${protocol}://${window.location.host}/api/stats/metrics`);
-        socketRef.current = socket;
-        socket.onopen = () => {
-            setLoading(false);
-        }
-
-        socket.onmessage = (event: MessageEvent) => {
-            try {
-                const data = JSON.parse(event.data as string) as Mertrics;
-                setDataIndex(prevIndex => prevIndex + 1);
-                setCardData(data);
-                setIsSuspended(data.is_metrics_suspended);
-            } catch {
-                // NOOP
-            }
-        }
-
-        socket.onclose = (_event: CloseEvent) => {
-            if (doClose.current) {
-                doClose.current = false;
-                return;
-            }
-
-            reconnectTimeoutRef.current = setTimeout(function reconnect() {
-                close();
-                connectRef.current();
-            }, 3000);
-        }
+        return openMetricsStream(protocol + '://' + window.location.host + '/api/stats/metrics',
+            () => { setLoading(false); },
+            (event) => {
+                try {
+                    const data = JSON.parse(event.data as string) as Mertrics;
+                    setDataIndex(previous => previous + 1);
+                    setCardData(data);
+                    setIsSuspended(data.is_metrics_suspended);
+                } catch { /* Ignore incomplete metric messages. */ }
+            });
     }, []);
-
-    React.useEffect(() => {
-        const blockedCard = totalCards.find(card => card.accessor === 'block_query_count');
-        if (blockedCard) {
-            (blockedCard as { onClick?: () => void }).onClick = () => router.push(`${paths.dashboard.queryLog}?is_blocked=true`);
-        }
-    }, [router]);
-
-    React.useEffect(() => {
-        const cacheCard = totalCards.find(card => card.accessor === 'cache_number');
-        if (cacheCard) {
-            (cacheCard as { onClick?: () => void }).onClick = () => setCacheDialogOpen(true);
-        }
-    }, []);
-
-    React.useEffect(() => {
-        connectRef.current = connect;
-    }, [connect]);
-
-    React.useEffect(() => {
-        connectRef.current();
-        return (): void => {
-            doClose.current = true;
-            close();
-        }
-    }, [connect]);
 
     return (
         <Box>
@@ -218,7 +157,7 @@ export function MetricsCards(): React.JSX.Element {
                         <MetricsCard title={card.title}
                             isloading={loading}
                             icon={card.icon}
-                            onClick={card.onClick ?? undefined}
+                            onClick={card.accessor === 'block_query_count' ? () => router.push(paths.dashboard.queryLog + '?is_blocked=true') : card.accessor === 'cache_number' ? () => { setCacheDialogOpen(true); } : undefined}
                             value={cardata?.[card.accessor] ?? 0}
                             bgcolor={card.bgcolor}
                             render={card.render}

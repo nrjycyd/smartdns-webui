@@ -25,7 +25,8 @@ function getTokenData(token: string): { token?: string, error?: string } {
   try {
     const tokenData = JSON.parse(token) as TokenData;
     const currentTime = Date.now();
-    const expiresAt = Number(tokenData.expiresAt);
+    if (!tokenData || typeof tokenData.token !== 'string' || !tokenData.token || typeof tokenData.expiresAt !== 'number' || !Number.isFinite(tokenData.expiresAt)) return { error: 'Token invalid' };
+    const expiresAt = tokenData.expiresAt;
 
     if (currentTime > expiresAt) {
       return { error: "Token expired" };
@@ -36,20 +37,9 @@ function getTokenData(token: string): { token?: string, error?: string } {
   }
 }
 
-export interface SignUpParams {
-  firstName: string;
-  lastName: string;
-  username: string;
-  password: string;
-}
-
 export interface SignInWithPasswordParams {
   username: string;
   password: string;
-}
-
-export interface ResetPasswordParams {
-  username: string;
 }
 
 class AuthClient {
@@ -147,14 +137,6 @@ class AuthClient {
     logger.debug('[AuthClient]: sigIn');
 
     return {};
-  }
-
-  async resetPassword(_: ResetPasswordParams): Promise<{ error?: string }> {
-    return { error: 'Password reset not implemented' };
-  }
-
-  async updatePassword(_: ResetPasswordParams): Promise<{ error?: string }> {
-    return { error: 'Update reset not implemented' };
   }
 
   saveUserSettings(): void {

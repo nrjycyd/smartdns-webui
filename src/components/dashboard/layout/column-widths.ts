@@ -104,7 +104,7 @@ export function fitColumnWidths(columns: readonly ColumnWidthTarget[], available
     for (const [index, column] of columns.entries()) widths[index] = column.min + (widths[index] - column.min) * ratio;
   } else {
     let remaining = budget - preferred;
-    let active = columns.map((column, index) => index).filter((index) => columns[index].weight > 0 && widths[index] < columns[index].max);
+    let active = columns.map((_column, index) => index).filter((index) => columns[index].weight > 0 && widths[index] < columns[index].max);
     while (remaining > 0.01 && active.length > 0) {
       const weight = active.reduce((sum, index) => sum + columns[index].weight, 0);
       let used = 0;

@@ -37,20 +37,8 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Test PWA
-        run: npm run test:pwa
-
-      - name: Test group appearance
-        run: npm run test:groups
-
-      - name: Test client names
-        run: npm run test:clients
-
-      - name: Test column widths
-        run: npm run test:columns
-
-      - name: Test audit regressions
-        run: npm run test:audit
+      - name: Run all tests
+        run: npm test
 
       - name: Build
         run: npm run build
