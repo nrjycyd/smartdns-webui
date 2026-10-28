@@ -44,6 +44,8 @@ import { getClientName } from './client-names';
 import { useClientNames } from './client-names-provider';
 import { useRefreshClientIdentities } from './client-identity-provider';
 import { useAdaptiveColumns } from '@/components/dashboard/layout/use-adaptive-columns';
+import { ClientActivityProvider } from './client-activity-provider';
+import { CLIENT_REFRESH_INTERVAL } from './client-activity';
 
 
 interface UserApiResponse {
@@ -110,8 +112,8 @@ function TableClients(): React.JSX.Element {
         header: t('Last Query Time'),
         filterVariant: 'datetime-range',
         Cell: ({ cell }) => {
-          const timestamp = cell.getValue<string>();
-          const localTime = formatTime(timestamp);
+          const timestamp = cell.getValue<number>();
+          const localTime = Number.isFinite(timestamp) && timestamp > 0 ? formatTime(timestamp) : '—';
           return <span>{localTime}</span>;
         },
         columnFilterModeOptions: ['equals'],
@@ -177,6 +179,7 @@ function TableClients(): React.JSX.Element {
     data: { data = [], meta } = {},
     isError,
     isRefetching,
+    isPlaceholderData,
     isLoading,
     refetch,
   } = useQuery<UserApiResponse>({
@@ -262,6 +265,8 @@ function TableClients(): React.JSX.Element {
       return resp;
     },
     placeholderData: keepPreviousData,
+    refetchInterval: CLIENT_REFRESH_INTERVAL,
+    refetchIntervalInBackground: false,
   });
 
   React.useEffect(() => {
@@ -339,7 +344,7 @@ function TableClients(): React.JSX.Element {
 
   const widthText = React.useCallback((row: ClientList, id: string) => {
     if (id === 'hostname') return getClientName(clientNames, row.mac) || row.hostname || '—';
-    if (id === 'last_query_timestamp') return formatTime(row.last_query_timestamp);
+    if (id === 'last_query_timestamp') return Number.isFinite(row.last_query_timestamp) && row.last_query_timestamp > 0 ? formatTime(row.last_query_timestamp) : '—';
     return String(row[id as keyof ClientList] ?? '');
   }, [clientNames, formatTime]);
   const widths = useAdaptiveColumns({ layout: 'clients', columns, data, visibility: columnVisibility, density, manualSizing: columnSizing, text: widthText, actions: true });
@@ -491,7 +496,7 @@ function TableClients(): React.JSX.Element {
     }),
   });
 
-  return (<><MaterialReactTable table={table} />{editingClient && <ClientNameDialog key={editingClient.id} client={editingClient} onClose={() => { setEditingClient(null); }} />}</>);
+  return (<ClientActivityProvider available={!isError && !isLoading && !isPlaceholderData}><MaterialReactTable table={table} />{editingClient && <ClientNameDialog key={editingClient.id} client={editingClient} onClose={() => { setEditingClient(null); }} />}</ClientActivityProvider>);
 };
 
 const queryClient = new QueryClient({

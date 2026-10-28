@@ -57,7 +57,7 @@ export function useAdaptiveColumns<T extends object>({ layout: pageLayout, colum
       const id = column.id ?? column.accessorKey;
       if (!id || visibility[id] === false) return [];
       const cellPadding = pageLayout === 'query-log' && isCompactQueryLogColumn(id) ? padding / 2 : padding;
-      const contentAllowance = cellPadding + measurement.copyPadding + 4;
+      const contentAllowance = cellPadding + measurement.copyPadding + 4 + (pageLayout === 'clients' && id === 'hostname' ? 36 : 0);
       const samples = referenceText?.[id] ?? data.slice(0, 80).map((row) => text ? text(row, id) : String(row[id as keyof T] ?? ''));
       let content = measureColumnContent(id, samples, measure, pageLayout !== 'query-log' || referenceText?.[id] !== undefined);
       if (id === 'domain_type') content = Math.max(content, measure('AAAA'), measure('HTTPS'));

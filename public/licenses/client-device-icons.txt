@@ -1,0 +1,49 @@
+CLIENT DEVICE ICON ATTRIBUTIONS
+
+Icons obtained from Iconify icon data: https://github.com/iconify/icon-sets
+Icon shapes are unchanged; UI applies theme and activity colors.
+
+Boxicons Brands — Boxicons
+Icons: bxl:microsoft
+Source: https://github.com/box-icons/boxicons-core
+License: MIT — https://github.com/box-icons/boxicons-core/blob/main/LICENSE
+
+Custom Brand Icons — Emanuele & rchiileea
+Icons: cbi:apple, cbi:apple-tv, cbi:huawei
+Source: https://github.com/elax46/custom-brand-icons
+License reported by Iconify distribution metadata: CC BY-NC-SA 4.0
+https://creativecommons.org/licenses/by-nc-sa/4.0/
+The upstream repository currently supplies an MIT license; its retrieved text is
+included in client-custom-brand-icons.txt. The Iconify distribution attribution
+and CC BY-NC-SA text are retained for these bundled copies.
+
+Font Awesome Solid — Dave Gandy
+Icons: fa7-solid:radio
+Source: https://github.com/FortAwesome/Font-Awesome
+License: CC BY 4.0 — https://creativecommons.org/licenses/by/4.0/
+
+Google Material Icons — Material Design Authors
+Icons: ic:twotone-phone-android
+Source: https://github.com/material-icons/material-icons
+License: Apache 2.0 — https://github.com/material-icons/material-icons/blob/master/LICENSE
+
+Lineicons — Lineicons
+Icons: lineicons:vmware
+Source: https://github.com/LineiconsHQ/Lineicons
+License: MIT — https://github.com/LineiconsHQ/Lineicons/blob/main/LICENSE.md
+
+Material Design Icons — Pictogrammers
+Icons: mdi:debian, mdi:devices
+Source: https://github.com/Templarian/MaterialDesign
+License: Apache 2.0 — https://github.com/Templarian/MaterialDesign/blob/master/LICENSE
+
+Simple Icons — Simple Icons Collaborators
+Icons: simple-icons:xiaomi
+Source: https://github.com/simple-icons/simple-icons
+License: CC0 1.0 — https://github.com/simple-icons/simple-icons/blob/develop/LICENSE.md
+
+Solar — 480 Design
+Icons: solar:videocamera-record-bold-duotone
+Source: https://www.figma.com/community/file/1166831539721848736
+License: CC BY 4.0 — https://creativecommons.org/licenses/by/4.0/
+

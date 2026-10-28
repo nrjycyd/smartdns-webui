@@ -40,6 +40,35 @@ export function updateClientName(names: ClientNames, mac: string, name: string):
   return next;
 }
 
-export function serializeClientNames(names: ClientNames): string {
-  return JSON.stringify({ version: 1, names });
+export function isValidClientIcon(value: string): boolean {
+  return value === '' || (value.length <= 128 && /^[a-z0-9]+(?:-[a-z0-9]+)*:[a-z0-9]+(?:-[a-z0-9]+)*$/.test(value));
+}
+
+export function parseClientIcons(source: string | null): ClientNames {
+  // Validate the existing envelope before reading the optional icon map.
+  parseClientNames(source);
+  if (source === null) return {};
+  const data = JSON.parse(source) as { icons?: unknown };
+  if (data.icons === undefined) return {};
+  if (!data.icons || typeof data.icons !== 'object' || Array.isArray(data.icons)) throw new Error('Invalid client icons');
+  const icons: Record<string, string> = {};
+  for (const [mac, icon] of Object.entries(data.icons)) {
+    const key = normalizeMac(mac);
+    if (!key || typeof icon !== 'string' || !isValidClientIcon(icon)) throw new Error('Invalid client icon');
+    icons[key] = icon;
+  }
+  return icons;
+}
+
+export function updateClientIcon(icons: ClientNames, mac: string, icon: string | undefined): ClientNames {
+  const key = normalizeMac(mac);
+  if (!key || (icon !== undefined && !isValidClientIcon(icon))) throw new Error('Invalid client icon');
+  const next = { ...icons };
+  if (icon === undefined) delete next[key];
+  else next[key] = icon;
+  return next;
+}
+
+export function serializeClientNames(names: ClientNames, icons?: ClientNames): string {
+  return JSON.stringify({ version: 1, names, ...(icons && Object.keys(icons).length > 0 ? { icons } : {}) });
 }

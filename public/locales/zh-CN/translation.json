@@ -227,5 +227,15 @@
     "Statistics source timezone": "统计数据原始时区",
     "Set this to the SmartDNS server timezone. Chart dates have no timezone; daily counts keep the server day boundaries.": "请设为 SmartDNS 服务器实际使用的时区。统计接口的日期不含时区，每日统计仍按服务器原有的日期边界划分。",
     "Uses YYYY-MM-DD HH:mm:ss and a 24-hour clock. Saved in this browser for this address; it does not synchronize the system clock.": "统一使用 YYYY-MM-DD HH:mm:ss 和 24 小时制。设置仅保存在当前浏览器的此地址下，不执行系统校时。",
-    "Server daily bucket": "服务器每日统计时区"
+    "Server daily bucket": "服务器每日统计时区",
+    "Recently active": "近期活跃",
+    "Generic device": "通用设备",
+    "Activity unknown": "活跃状态未知",
+    "No recent DNS queries": "近期无查询",
+    "Activity is based on DNS queries within 5 minutes, not device connectivity.": "根据最近 5 分钟的 DNS 查询判断活跃状态；灰色表示近期无查询，不代表设备离线。",
+    "Camera": "摄像头",
+    "Enter an icon name such as mdi:devices.": "请输入有效的图标名称，例如 mdi:devices。",
+    "Radio": "收音机",
+    "Device icons are also saved by MAC in this browser.": "设备图标同样按 MAC 保存在当前浏览器中。",
+    "Device icon": "设备图标"
 }
