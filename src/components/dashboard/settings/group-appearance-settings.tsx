@@ -132,7 +132,7 @@ function GroupAppearanceEditor(): React.JSX.Element {
     <Stack spacing={3} sx={{ maxWidth: 920 }}>
       <Stack spacing={1}>
         <Typography variant="h6">{t('Group appearance')}</Typography>
-        <Typography variant="body2" color="text.secondary">{t('Custom changes are stored only in this browser and address. Other devices and server configuration are unchanged.')}</Typography>
+        <Typography variant="body2" color="text.secondary">{t('Appearance settings are saved in this browser.')}</Typography>
       </Stack>
       {storageError && message?.severity !== 'error' && <Alert severity="warning">{t('Local settings could not be read or saved. Check browser storage permissions.')}</Alert>}
       {externalChange && dirty && <Alert severity="info">{t('Settings changed in another window. Cancel to load them, or save your current edits.')}</Alert>}
@@ -141,7 +141,7 @@ function GroupAppearanceEditor(): React.JSX.Element {
         <Autocomplete
           freeSolo fullWidth options={names} value={selected}
           onChange={(_event, value) => { if (value?.trim()) { setSelected(value.trim()); setEditingIcon(false); setMessage(null); } }}
-          renderInput={(params) => <TextField {...params} label={t('Group')} helperText={t('Choose a known group, or enter a name and press Enter. This does not create a SmartDNS group.')} />}
+          renderInput={(params) => <TextField {...params} label={t('Group')} helperText={t('Choose or enter a group name; appearance only.')} />}
         />
         <Chip label={t(Object.keys(rule).length > 0 ? 'Custom' : 'Default')} color={Object.keys(rule).length > 0 ? 'primary' : 'default'} size="small" variant="outlined" sx={{ mt: { sm: '16px !important' }, alignSelf: 'flex-start' }} />
       </Stack>
@@ -152,7 +152,7 @@ function GroupAppearanceEditor(): React.JSX.Element {
           <MenuItem value="empty">{t('No icon')}</MenuItem>
           <MenuItem value="custom">{t('Custom')}</MenuItem>
         </TextField>
-        {iconMode === 'custom' && <Autocomplete freeSolo options={Object.keys(groupIcons)} value={rule.icon || null} inputValue={rule.icon || ''} onChange={(_event, value) => { change('icon', value || ''); }} onInputChange={(_event, value, reason) => { if (reason === 'input' || reason === 'clear') change('icon', value); }} renderInput={(params) => <TextField {...params} label={t('Iconify icon name')} error={Boolean(rule.icon && !isGroupIconName(rule.icon.trim()))} helperText={rule.icon && !isGroupIconName(rule.icon.trim()) ? t('Enter an icon name such as keyline-icons:shield-off-duotone.') : t('Built-in icons work locally. Other icons require access to the Iconify API.')} />} />}
+        {iconMode === 'custom' && <Autocomplete freeSolo options={Object.keys(groupIcons)} value={rule.icon || null} inputValue={rule.icon || ''} onChange={(_event, value) => { change('icon', value || ''); }} onInputChange={(_event, value, reason) => { if (reason === 'input' || reason === 'clear') change('icon', value); }} renderInput={(params) => <TextField {...params} label={t('Iconify icon name')} error={Boolean(rule.icon && !isGroupIconName(rule.icon.trim()))} helperText={rule.icon && !isGroupIconName(rule.icon.trim()) ? t('Enter an icon name such as keyline-icons:shield-off-duotone.') : t('Custom icons require internet access.')} />} />}
       </Stack>
       <ColorRuleEditor label={t('Icon color')} value={rule.iconColor} fallback={fileDefault?.iconColor || effective?.color} emptyLabel={t('Follow text color')} disabled={!effective?.icon} onChange={(value) => { change('iconColor', value); }} />
       <Stack spacing={1}>

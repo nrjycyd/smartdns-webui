@@ -612,29 +612,7 @@ function TableQueryLogs(): React.JSX.Element {
       title: widthText(row.original, cell.column.id),
     }),
     muiCopyButtonProps: { sx: { ...widths.copySx, padding: 0, mx: 0 } },
-    muiTableHeadCellProps: ({ column }) => {
-      const alignment = queryLogAlignment(column.id);
-      const gutter = column.getCanFilter() ? 20 : 0;
-      return {
-        'data-width-column': column.id, 'data-query-align': alignment, align: alignment,
-        sx: {
-          ...widths.headerSx, px: horizontalPadding,
-          '& .Mui-TableHeadCell-Content': { display: 'block', position: 'relative', width: '100%' },
-          '& .Mui-TableHeadCell-Content-Labels': {
-            display: 'block', position: 'relative', width: '100%', boxSizing: 'border-box', overflow: 'visible',
-            paddingLeft: alignment === 'center' || alignment === 'right' ? `${gutter}px` : 0,
-            paddingRight: alignment === 'center' || alignment === 'left' ? `${gutter}px` : 0,
-          },
-          '& .Mui-TableHeadCell-Content-Wrapper': { minWidth: 0, width: '100%', textAlign: alignment, whiteSpace: 'nowrap' },
-          '& .Mui-TableHeadCell-Content-Labels > span': {
-            position: 'absolute', top: 0, bottom: 0, display: 'flex', alignItems: 'center', width: 20,
-            right: alignment === 'right' ? 'auto' : 0, left: alignment === 'right' ? 0 : 'auto',
-          },
-          '& .Mui-TableHeadCell-Content-Labels > span .MuiIconButton-root': { marginLeft: 0 },
-          '& .Mui-TableHeadCell-Content-Actions': { position: 'absolute', right: 0, top: 0 },
-        },
-      };
-    },
+    muiTableHeadCellProps: ({ column }) => ({ 'data-width-column': column.id, sx: {} }),
     enableSorting: false,
     enableColumnOrdering: true,
     enableRowActions: true,

@@ -36,8 +36,7 @@ export function ClientNameDialog({ client, onClose }: { client: ClientList; onCl
       <DialogTitle id="client-name-title">{t('Custom hostname')}</DialogTitle>
       <DialogContent>
         <Stack spacing={2} sx={{ pt: 1 }}>
-          <DialogContentText>{t('Names are UI labels saved in this browser. Devices with the same MAC share the name. Leave blank to use the server hostname.')}</DialogContentText>
-          <Typography variant="body2" color="text.secondary">{t('Device icons are also saved by MAC in this browser.')}</Typography>
+          <DialogContentText>{t('Saved in this browser and shared by MAC. Leave the name blank to use the server hostname.')}</DialogContentText>
           <Typography variant="body2">{t('Client IP')}: {client.client_ip}</Typography>
           <Typography variant="body2">{t('Mac Address')}: {mac || '—'}</Typography>
           <Typography variant="body2">{t('Server hostname: {{name}}', { name: client.hostname || '—' })}</Typography>
@@ -46,7 +45,7 @@ export function ClientNameDialog({ client, onClose }: { client: ClientList; onCl
           <TextField
             autoFocus fullWidth label={t('Custom hostname')} value={name} disabled={!mac || !ready}
             onChange={(event) => { setName(event.target.value); }} error={!isValidClientName(name)}
-            helperText={t('Use up to 64 characters without line breaks or control characters.')}
+            helperText={t('Up to 64 characters.')}
             slotProps={{ htmlInput: { maxLength: 64 } }}
           />
           <TextField select fullWidth label={t('Device icon')} value={customMode ? 'custom' : icon} disabled={disabled}
@@ -61,7 +60,7 @@ export function ClientNameDialog({ client, onClose }: { client: ClientList; onCl
           {customMode && <TextField
             fullWidth label={t('Iconify icon name')} value={icon} disabled={!mac || !ready}
             onChange={(event) => { setIcon(event.target.value); }} error={!validIcon}
-            helperText={validIcon ? t('Built-in icons work locally. Other icons require access to the Iconify API.') : t('Enter an icon name such as mdi:devices.')}
+            helperText={validIcon ? t('Custom icons require internet access.') : t('Enter an icon name such as mdi:devices.')}
             slotProps={{ htmlInput: { maxLength: 128 } }}
           />}
           <Stack spacing={0.75}>
@@ -74,7 +73,7 @@ export function ClientNameDialog({ client, onClose }: { client: ClientList; onCl
                 slotProps={{ htmlInput: { maxLength: 7, spellCheck: false } }} />
               <Button disabled={disabled || !color} onClick={() => { setColor(''); }} sx={{ flexShrink: 0, mt: 1 }}>{t('Reset color')}</Button>
             </Stack>
-            <Typography variant="caption" color={validColor ? 'text.secondary' : 'error'}>{validColor ? t('Custom color applies to active icons in both themes. Inactive icons stay gray.') : t('Enter a color such as #3B7B91.')}</Typography>
+            {!validColor && <Typography variant="caption" color="error">{t('Enter a color such as #3B7B91.')}</Typography>}
           </Stack>
           <Stack spacing={1}>
             <Typography variant="subtitle2">{t('Live preview')}</Typography>
@@ -86,7 +85,7 @@ export function ClientNameDialog({ client, onClose }: { client: ClientList; onCl
                 </Box>
               </Stack>)}
             </Stack>
-            <Typography variant="caption" color="text.secondary">{t('Activity is based on DNS queries within 5 minutes, not device connectivity.')}</Typography>
+            <Typography variant="caption" color="text.secondary">{t('Active: DNS queries within 5 minutes.')}</Typography>
           </Stack>
         </Stack>
       </DialogContent>

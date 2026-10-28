@@ -246,5 +246,15 @@
     "Reset color": "恢复配色",
     "Custom color applies to active icons in both themes. Inactive icons stay gray.": "自定义颜色用于深浅主题中的活跃图标，近期无查询时仍显示灰色。",
     "Enter a color such as #3B7B91.": "请输入六位十六进制颜色，例如 #3B7B91。",
-    "NAS": "通用 NAS"
+    "NAS": "通用 NAS",
+    "Saved in this browser and shared by MAC. Leave the name blank to use the server hostname.": "设置保存在当前浏览器，按 MAC 共用。名称留空则使用服务器主机名。",
+    "Up to 64 characters.": "最多 64 个字符。",
+    "Custom icons require internet access.": "自定义图标需联网加载。",
+    "Active: DNS queries within 5 minutes.": "活跃：5 分钟内有 DNS 查询。",
+    "Applied immediately and saved in this browser.": "立即生效，保存在当前浏览器。",
+    "Auto fit adjusts to content and window size. In manual mode, drag column edges to resize.": "自动适配内容与窗口；手动模式可拖动列边缘调整。",
+    "Appearance settings are saved in this browser.": "外观设置保存在当前浏览器。",
+    "Choose or enter a group name; appearance only.": "选择或输入组名，仅设置显示外观。",
+    "Match the SmartDNS server timezone.": "请选择 SmartDNS 服务器使用的时区。",
+    "Time settings are saved in this browser.": "时间设置保存在当前浏览器。"
 }

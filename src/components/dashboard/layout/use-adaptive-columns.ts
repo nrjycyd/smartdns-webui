@@ -5,7 +5,7 @@ import { COPY_BUTTON_INLINE_PADDING, createColumnWidthTarget, fitColumnWidths, m
 import type { TableColumnLayout } from './column-widths';
 import { useTableWidth } from './table-width-provider';
 import type { TableDensity } from './table-density-provider';
-import { mergeQueryLogWidths, queryLogAlignment, queryLogColumnTarget, queryLogPadding } from './query-log-layout';
+import { mergeQueryLogWidths, queryLogColumnTarget, queryLogPadding } from './query-log-layout';
 
 interface Column {
   id?: string;
@@ -208,11 +208,9 @@ export function useAdaptiveColumns<T extends object>({ layout: pageLayout, colum
         const spacing = Number.parseFloat(headerStyle.letterSpacing) || 0;
         const controls = [...(wrapper.parentElement?.children ?? [])].filter((child) => child !== wrapper).reduce((sum, child) => sum + outerWidth(child), 0);
         const actions = th.querySelector('.Mui-TableHeadCell-Content-Actions');
-        // Padding transitions still expose the previous density for a few frames.
-        // Do not permanently retain that wider header when returning to compact.
-        const headerPadding = pageLayout === 'query-log' ? queryLogPadding(density, rem) * 2
-          : (Number.parseFloat(cellStyle.paddingLeft) || 0) + (Number.parseFloat(cellStyle.paddingRight) || 0);
-        const controlBudget = pageLayout === 'query-log' && queryLogAlignment(th.dataset.widthColumn ?? '') === 'center' ? controls * 2 : controls;
+        // Measure default header padding separately from body spacing.
+        const headerPadding = (Number.parseFloat(cellStyle.paddingLeft) || 0) + (Number.parseFloat(cellStyle.paddingRight) || 0);
+        const controlBudget = controls;
         headers[title] = Math.ceil(context.measureText(title).width + Math.max(0, title.length - 1) * spacing + controlBudget + (actions ? outerWidth(actions) : 0) + headerPadding + 8);
         if (th.dataset.widthColumn === 'mrt-row-actions') headers['mrt-row-actions'] = headers[title];
       }
