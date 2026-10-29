@@ -11,6 +11,14 @@ const exports = {};
 new Function('exports', 'require', compiled)(exports, require);
 const { moment, formatDisplayTime, filterTimestamp, statisticsTime, nextStatisticsDay, parseTimeSettings, validTimeZone } = exports;
 
+test('numeric table timestamps match bundled timezone formatting across DST and historical offsets', () => {
+  const instants = [0, -1, 0.9, -0.9, Date.parse('1900-01-01T00:00:00Z'), Date.parse('2026-03-08T06:59:59Z'), Date.parse('2026-03-08T07:00:00Z'), Date.parse('2026-11-01T05:59:59Z'), Date.parse('2026-11-01T06:00:00Z'), Date.parse('0099-01-01T00:00:00Z')];
+  for (const zone of ['UTC', 'Asia/Shanghai', 'America/New_York', 'Europe/Berlin', 'Asia/Kathmandu', 'Pacific/Chatham', 'Australia/Lord_Howe']) {
+    for (const instant of instants) assert.equal(formatDisplayTime(instant, zone), moment.utc(instant).tz(zone).locale('en').format('YYYY/MM/DD HH:mm:ss'), `${zone}: ${instant}`);
+  }
+  for (const instant of [Infinity, -Infinity, NaN]) assert.equal(formatDisplayTime(instant, 'UTC'), '—');
+});
+
 test('display does not follow browser timezone and never changes the source instant', () => {
   assert.equal(formatDisplayTime(Date.parse('2026-10-27T11:06:20Z'), 'Asia/Shanghai'), '2026/10/27 19:06:20');
   const instant = Date.parse('2026-10-27T12:34:56Z');

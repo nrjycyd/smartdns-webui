@@ -207,23 +207,32 @@ export function useAdaptiveColumns<T extends object>({ layout: pageLayout, colum
       // Measure full label text independently of the cell's current clipped width.
       let clientWidth: number | undefined;
       if (pageLayout === 'query-log' && context) {
+        const identityMetrics = new Map<string, { font: string; spacing: number; extra: number }>();
         for (const button of element.querySelectorAll<HTMLElement>('tbody [data-query-client]')) {
           const label = button.querySelector<HTMLElement>('[data-query-client-text]');
           if (!label) continue;
-          const labelStyle = readStyle(label);
           const value = label.textContent ?? '';
-          context.font = `${labelStyle.fontWeight} ${labelStyle.fontSize} ${labelStyle.fontFamily}`;
-          const labelWidth = context.measureText(value).width + Math.max(0, value.length - 1) * (Number.parseFloat(labelStyle.letterSpacing) || 0);
           const parts = [...button.querySelectorAll<HTMLElement>(':scope > [data-client-device-icon], :scope > [data-query-client-text], :scope > [data-query-client-unknown]')];
-          const buttonStyle = readStyle(button);
-          const decorations = parts.filter((part) => part !== label).reduce((sum, part) => sum + outerWidth(part), 0);
-          const gaps = Math.max(0, parts.length - 1) * (Number.parseFloat(buttonStyle.columnGap) || 0);
-          let inset = 0;
+          const ancestry: HTMLElement[] = [];
           for (let node: HTMLElement | null = button; node; node = node.parentElement) {
-            inset += horizontalInset(node);
+            ancestry.push(node);
             if (node.tagName === 'TD') break;
           }
-          clientWidth = Math.max(clientWidth ?? 0, Math.ceil(labelWidth + decorations + gaps + inset + 4));
+          // These identity controls share explicit typography and fixed-size icon
+          // slots. Reuse their decoration geometry only within this measurement.
+          const key = JSON.stringify([ancestry.map(node => [node.className, node.style.cssText]), parts.map(node => [node.tagName, node.className, node.style.cssText, node.dataset.queryClientUnknown !== undefined])]);
+          let metrics = identityMetrics.get(key);
+          if (!metrics) {
+            const labelStyle = readStyle(label);
+            const buttonStyle = readStyle(button);
+            const decorations = parts.filter((part) => part !== label).reduce((sum, part) => sum + outerWidth(part), 0);
+            const gaps = Math.max(0, parts.length - 1) * (Number.parseFloat(buttonStyle.columnGap) || 0);
+            metrics = { font: `${labelStyle.fontWeight} ${labelStyle.fontSize} ${labelStyle.fontFamily}`, spacing: Number.parseFloat(labelStyle.letterSpacing) || 0, extra: decorations + gaps + ancestry.reduce((sum, node) => sum + horizontalInset(node), 0) + 4 };
+            identityMetrics.set(key, metrics);
+          }
+          context.font = metrics.font;
+          const labelWidth = context.measureText(value).width + Math.max(0, value.length - 1) * metrics.spacing;
+          clientWidth = Math.max(clientWidth ?? 0, Math.ceil(labelWidth + metrics.extra));
         }
       }
       // Measure inside the actual time cell: another column's button typography

@@ -1,4 +1,5 @@
 "use client"
+import { SharedTableTooltip as Tooltip } from '../layout/shared-table-tooltip';
 
 import * as React from 'react';
 import { useMemo, useState } from 'react';
@@ -19,7 +20,7 @@ import {
   type MRT_Cell as MRTCell,
   type MRT_TableInstance as MRTTableInstance,
 } from 'material-react-table';
-import { Box, Card, IconButton, Tooltip, Chip } from '@mui/material';
+import { Box, Card, IconButton, Chip } from '@mui/material';
 import { createTheme, useColorScheme } from '@mui/material/styles';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import WidthNormalOutlined from '@mui/icons-material/WidthNormalOutlined';
@@ -43,6 +44,7 @@ import { type SnackbarOrigin, SnackbarProvider, useSnackbar } from 'notistack';
 import { getDomainTypeName, getDomainTypeId } from './domain-type';
 import { QueryClientIdentityCell } from './client-identity-cell';
 import { ScrollingPing } from './scrolling-ping';
+import { OptimizedTableBody } from '../layout/optimized-table-body';
 import { ClientActivityProvider } from '@/components/dashboard/clients/client-activity-provider';
 import { ClientIdentityBatchProvider, useClientIdentitySizingReady, useRefreshClientIdentities } from '@/components/dashboard/clients/client-identity-provider';
 import { useClientNames } from '@/components/dashboard/clients/client-names-provider';
@@ -611,6 +613,7 @@ function TableQueryLogs(): React.JSX.Element {
     onColumnPinningChange: setColumnPinning,
     onActionCellChange: setActionCell,
     muiTableContainerProps: { ref: widths.containerRef },
+    muiTableBodyProps: ({ table }) => ({ children: isLoading || data.length > 0 ? <OptimizedTableBody table={table} /> : undefined }),
     muiTableBodyCellProps: ({ row, cell }) => ({
       'data-query-column': cell.column.id,
       'data-query-align': queryLogAlignment(cell.column.id),

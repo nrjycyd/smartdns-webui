@@ -3,6 +3,7 @@
 import * as React from 'react';
 import { keyframes } from '@emotion/react';
 import Box from '@mui/material/Box';
+import { observePingOverflow } from './ping-overflow-observer';
 
 const scroll = keyframes({
   '0%, 20%': { transform: 'translateX(0)' },
@@ -14,12 +15,7 @@ export function ScrollingPing({ value }: { value: string }): React.JSX.Element {
   const text = React.useRef<HTMLSpanElement>(null);
   const [overflow, setOverflow] = React.useState(0);
   React.useEffect(() => {
-    const measure = () => { setOverflow(Math.max(0, (text.current?.scrollWidth ?? 0) - (container.current?.clientWidth ?? 0))); };
-    measure();
-    const observer = new ResizeObserver(measure);
-    if (container.current) observer.observe(container.current);
-    if (text.current) observer.observe(text.current);
-    return () => { observer.disconnect(); };
+    if (container.current && text.current) return observePingOverflow(container.current, text.current, setOverflow);
   }, [value]);
   return <Box component="span" ref={container} data-query-ping data-overflow={overflow > 0 || undefined}
     style={{ '--ping-overflow': `${overflow}px`, '--ping-duration': `${Math.max(3, overflow / 20)}s` } as React.CSSProperties}

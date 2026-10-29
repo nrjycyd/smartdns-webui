@@ -2,6 +2,8 @@
 
 import * as React from 'react';
 import { useMemo, useState } from 'react';
+import { OptimizedTableBody } from '../layout/optimized-table-body';
+import { SharedTableTooltip as Tooltip } from '../layout/shared-table-tooltip';
 import { readColumnVisibility, readColumnSizing, saveTablePreference, readTablePagination, getPageCursorParams, type PageCursor } from '@/components/dashboard/layout/table-preferences';
 import { useSearchParams } from 'next/navigation';
 import {
@@ -19,7 +21,7 @@ import {
   type MRT_Cell as MRTCell,
   type MRT_TableInstance as MRTTableInstance,
 } from 'material-react-table';
-import { Card, IconButton, Tooltip } from '@mui/material';
+import { Card, IconButton } from '@mui/material';
 import { createTheme, useColorScheme } from '@mui/material/styles';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import { moment, filterTimestamp } from '@/lib/display-time';
@@ -379,6 +381,7 @@ function TableClients(): React.JSX.Element {
     onColumnPinningChange: setColumnPinning,
     onActionCellChange: setActionCell,
     muiTableContainerProps: { ref: widths.containerRef },
+    muiTableBodyProps: ({ table }) => ({ children: isLoading || data.length > 0 ? <OptimizedTableBody table={table} layout="clients" /> : undefined }),
     muiTableBodyCellProps: ({ row, cell }) => ({ sx: widths.cellSx, title: widthText(row.original, cell.column.id) }),
     muiCopyButtonProps: { sx: widths.copySx },
     muiTableHeadCellProps: { sx: widths.headerSx },

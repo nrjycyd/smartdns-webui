@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import Button from '@mui/material/Button';
-import Tooltip from '@mui/material/Tooltip';
+import { SharedTableTooltip as Tooltip } from '../layout/shared-table-tooltip';
 import Box from '@mui/material/Box';
 import { useSnackbar } from 'notistack';
 import { useTranslation } from 'react-i18next';

@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import Tooltip from '@mui/material/Tooltip';
+import { SharedTableTooltip as Tooltip } from '../layout/shared-table-tooltip';
 import Box from '@mui/material/Box';
 import { useTranslation } from 'react-i18next';
 import type { ClientList } from '@/lib/backend/server';
