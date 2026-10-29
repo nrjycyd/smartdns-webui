@@ -23,6 +23,21 @@ function outerWidth(node: Element): number {
   return Math.max(node.getBoundingClientRect().width, node.scrollWidth) + (Number.parseFloat(style.marginLeft) || 0) + (Number.parseFloat(style.marginRight) || 0);
 }
 
+function saveMeasuredWidth(cache: Map<string, number>, key: string, width: number, limit = 128): number {
+  if (cache.size >= limit) cache.clear();
+  cache.set(key, width);
+  return width;
+}
+
+// Content widths are reusable only under the same actual browser typography.
+function typographyKey(node: Element): string {
+  const style = getComputedStyle(node);
+  return JSON.stringify([
+    ...(['fontFamily', 'fontSize', 'fontWeight', 'fontStyle', 'fontStretch', 'fontVariant', 'fontVariantNumeric', 'fontFeatureSettings', 'fontVariationSettings', 'fontOpticalSizing', 'fontKerning', 'fontVariantLigatures', 'fontSynthesis', 'letterSpacing', 'wordSpacing', 'textTransform', 'direction', 'writingMode', 'textOrientation', 'zoom', 'textRendering'] as const).map(property => style[property]),
+    window.devicePixelRatio, document.fonts?.status,
+  ]);
+}
+
 export function useAdaptiveColumns<T extends object>({ layout: pageLayout, columns, data, visibility, density, manualSizing, text, referenceText, actions = false, optionalColumn, filtering = true, sorting = false, columnActions = true, resetKey = '', sizingReady = true }: {
   layout: TableColumnLayout;
   columns: readonly Column[];
@@ -43,20 +58,28 @@ export function useAdaptiveColumns<T extends object>({ layout: pageLayout, colum
   const { mode } = useTableWidth();
   const automatic = mode === 'auto';
   const containerRef = React.useRef<HTMLDivElement>(null);
-  const [measurement, setMeasurement] = React.useState({ width: 0, timestampWidth: 0, clientWidth: 0, numericWidths: {} as Record<string, number>, font: '14px sans-serif', weight: '400', spacing: 0, rem: 16, copyPadding: 0, headerDensity: density, headers: {} as Record<string, number>, revision: 0 });
+  const [measurement, setMeasurement] = React.useState({ width: 0, timestampWidth: 0, clientWidth: 0, numericWidths: {} as Record<string, number>, font: '14px sans-serif', weight: '400', spacing: 0, rem: 16, copyPadding: 0, headerDensity: density, sizingReady: false, headers: {} as Record<string, number>, revision: 0 });
   const [retained, setRetained] = React.useState({ key: '', widths: {} as Record<string, number> });
+  const probeCache = React.useRef({ numeric: new Map<string, number>(), timestamp: new Map<string, number>() });
   const sizingKey = JSON.stringify([resetKey, density, visibility, measurement.font, measurement.weight, measurement.spacing, measurement.rem, measurement.revision]);
 
+  const measureText = React.useMemo(() => {
+    const context = typeof document === 'undefined' ? null : document.createElement('canvas').getContext('2d');
+    const cache = new Map<string, number>();
+    return (value: string, bold = false) => {
+      if (!context) return Math.min(value.length, 256) * 8;
+      const sample = value.slice(0, 256);
+      const key = JSON.stringify([sample, bold, measurement.revision, automatic]);
+      const cached = cache.get(key);
+      if (cached !== undefined) return cached;
+      context.font = `${bold ? 600 : measurement.weight} ${measurement.font}`;
+      return saveMeasuredWidth(cache, key, context.measureText(sample).width + Math.max(0, sample.length - 1) * measurement.spacing, 2048);
+    };
+  }, [measurement.font, measurement.weight, measurement.spacing, measurement.revision, automatic]);
 
   const layout = React.useMemo(() => {
     if (!automatic || measurement.width === 0) return { columnSizing: manualSizing, columnVisibility: visibility, minimums: undefined };
-    const context = document.createElement('canvas').getContext('2d');
-    const measure = (value: string, bold = false) => {
-      if (!context) return Math.min(value.length, 256) * 8;
-      context.font = `${bold ? 600 : measurement.weight} ${measurement.font}`;
-      const sample = value.slice(0, 256);
-      return context.measureText(sample).width + Math.max(0, sample.length - 1) * measurement.spacing;
-    };
+    const measure = measureText;
     const padding = measurement.rem * (density === 'compact' ? 1 : density === 'comfortable' ? 2 : 3);
     const targets = columns.flatMap((column) => {
       const id = column.id ?? column.accessorKey;
@@ -113,11 +136,18 @@ export function useAdaptiveColumns<T extends object>({ layout: pageLayout, colum
       columnVisibility: hiddenColumn ? { ...visibility, [hiddenColumn]: false } : visibility,
       minimums: Object.fromEntries(targets.filter((target) => target.id !== 'domain').map((target) => [target.id, target.min])),
     };
-  }, [automatic, pageLayout, columns, data, visibility, density, manualSizing, measurement, text, referenceText, actions, optionalColumn, filtering, sorting, columnActions, retained, sizingKey]);
+  }, [automatic, pageLayout, columns, data, visibility, density, manualSizing, measurement, measureText, text, referenceText, actions, optionalColumn, filtering, sorting, columnActions, retained, sizingKey]);
 
   React.useLayoutEffect(() => {
     const element = containerRef.current;
-    if (!automatic || !element) return;
+    if (!automatic) {
+      // Fonts can finish loading while manual widths are active and this
+      // effect has no listener. Start fresh when automatic sizing resumes.
+      probeCache.current.numeric.clear();
+      probeCache.current.timestamp.clear();
+      return;
+    }
+    if (!element) return;
     let frame = 0;
     const measure = () => {
       const copyButton = element.querySelector('tbody td .MuiButton-root');
@@ -138,20 +168,30 @@ export function useAdaptiveColumns<T extends object>({ layout: pageLayout, colum
       };
       const numericWidths: Record<string, number> = {};
       if (pageLayout === 'query-log') {
-        for (const id of ['id', 'ping_time', 'query_time', 'reply_code']) {
-          const cell = element.querySelector<HTMLElement>(`tbody [data-query-column="${id}"]`);
-          if (!cell) continue;
-          const leaf = cell.querySelector<HTMLElement>('.MuiButton-root') ?? cell;
-          const probe = document.createElement('span');
-          probe.style.cssText = 'position:fixed;visibility:hidden;display:inline-block;width:max-content;white-space:pre;font:inherit;font-variant-numeric:inherit;font-feature-settings:inherit;letter-spacing:inherit;padding:0;border:0;';
-          leaf.append(probe);
-          try {
+        const probes: { id: string; key: string; node: HTMLSpanElement }[] = [];
+        try {
+          for (const id of ['id', 'ping_time', 'query_time', 'reply_code']) {
+            const cell = element.querySelector<HTMLElement>(`tbody [data-query-column="${id}"]`);
+            if (!cell) continue;
+            const leaf = cell.querySelector<HTMLElement>('.MuiButton-root') ?? cell;
             const samples = id === 'ping_time' ? (referenceText?.[id] ?? ['99.9 ms'])
               : [...(referenceText?.[id] ?? []), ...data.map((row) => text ? text(row, id) : String(row[id as keyof T] ?? ''))];
-            const content = Math.max(0, ...samples.map((value) => { probe.textContent = value; return probe.getBoundingClientRect().width; }));
-            numericWidths[id] = Math.ceil(content + queryLogPadding(density, rem) * 2 + 4);
-          } finally { probe.remove(); }
-        }
+            const key = JSON.stringify([typographyKey(leaf), samples]);
+            const cached = probeCache.current.numeric.get(key);
+            if (cached !== undefined) {
+              numericWidths[id] = Math.ceil(cached + queryLogPadding(density, rem) * 2 + 4);
+              continue;
+            }
+            const probe = document.createElement('span');
+            probe.style.cssText = 'position:fixed;visibility:hidden;display:inline-block;width:max-content;white-space:pre;font:inherit;font-variant-numeric:inherit;font-feature-settings:inherit;letter-spacing:inherit;padding:0;border:0;height:0;overflow:hidden;pointer-events:none;';
+            leaf.append(probe);
+            // Preformatted lines retain exact browser typography but need only one layout read.
+            probe.textContent = samples.join('\n');
+            probes.push({ id, key, node: probe });
+          }
+          // Finish DOM writes before reading geometry to avoid one layout per column.
+          for (const { id, key, node } of probes) numericWidths[id] = Math.ceil(saveMeasuredWidth(probeCache.current.numeric, key, node.getBoundingClientRect().width) + queryLogPadding(density, rem) * 2 + 4);
+        } finally { for (const { node } of probes) node.remove(); }
       }
       // Names arrive asynchronously, and a hidden icon needs no decoration budget.
       // Measure full label text independently of the cell's current clipped width.
@@ -181,21 +221,34 @@ export function useAdaptiveColumns<T extends object>({ layout: pageLayout, colum
       let timestampWidth: number | undefined;
       const timestamp = element.querySelector<HTMLElement>('[data-query-timestamp]');
       if (pageLayout === 'query-log' && timestamp && referenceText?.timestamp) {
-        const probe = document.createElement('span');
-        probe.style.cssText = 'position:fixed;visibility:hidden;pointer-events:none;display:inline-block;width:max-content;max-width:none;white-space:pre;padding:0;margin:0;border:0;font:inherit;letter-spacing:inherit;word-spacing:inherit;font-feature-settings:inherit;font-variation-settings:inherit;';
-        timestamp.append(probe);
-        try {
-          const contentWidth = measureColumnContent('timestamp', referenceText.timestamp, (value) => {
-            probe.textContent = value;
-            return probe.getBoundingClientRect().width;
-          });
-          let inset = 0;
-          for (let node: HTMLElement | null = timestamp; node; node = node.parentElement) {
-            inset += horizontalInset(node);
-            if (node.tagName === 'TD') break;
-          }
-          timestampWidth = Math.ceil(contentWidth + inset + 4);
-        } finally { probe.remove(); }
+        const key = JSON.stringify([typographyKey(timestamp), referenceText.timestamp]);
+        let contentWidth = probeCache.current.timestamp.get(key);
+        if (contentWidth === undefined) {
+          const probe = document.createElement('span');
+          probe.style.cssText = 'position:fixed;visibility:hidden;pointer-events:none;display:inline-block;width:max-content;max-width:none;white-space:pre;padding:0;margin:0;border:0;font:inherit;letter-spacing:inherit;word-spacing:inherit;font-feature-settings:inherit;font-variation-settings:inherit;';
+          timestamp.append(probe);
+          try {
+            // Keep browser typography while batching the conservative digit/kerning probes.
+            const values = new Set([...'0123456789', ...referenceText.timestamp.flatMap(value => [...value])]);
+            for (const value of referenceText.timestamp) for (const digit of '0123456789') values.add(value.replaceAll(/\d/g, digit));
+            const probes = [...values].map(value => {
+              const node = document.createElement('span');
+              node.style.display = 'block';
+              node.style.width = 'max-content';
+              node.textContent = value;
+              probe.append(node);
+              return { value, node };
+            });
+            const widths = new Map(probes.map(({ value, node }) => [value, node.getBoundingClientRect().width]));
+            contentWidth = saveMeasuredWidth(probeCache.current.timestamp, key, measureColumnContent('timestamp', referenceText.timestamp, value => widths.get(value) ?? 0));
+          } finally { probe.remove(); }
+        }
+        let inset = 0;
+        for (let node: HTMLElement | null = timestamp; node; node = node.parentElement) {
+          inset += horizontalInset(node);
+          if (node.tagName === 'TD') break;
+        }
+        timestampWidth = Math.ceil(contentWidth + inset + 4);
       }
       const headers: Record<string, number> = {};
       for (const th of element.querySelectorAll<HTMLTableCellElement>('thead th')) {
@@ -214,6 +267,7 @@ export function useAdaptiveColumns<T extends object>({ layout: pageLayout, colum
         headers[title] = Math.ceil(context.measureText(title).width + Math.max(0, title.length - 1) * spacing + controlBudget + (actions ? outerWidth(actions) : 0) + headerPadding + 8);
         if (th.dataset.widthColumn === 'mrt-row-actions') headers['mrt-row-actions'] = headers[title];
       }
+      const identitiesMeasured = sizingReady && !element.querySelector('[data-query-client-pending]');
       setMeasurement((previous) => {
         // Clipped or temporarily hidden controls must not shrink a measured header.
         const nextHeaders = previous.headerDensity === density && previous.rem === rem ? { ...previous.headers } : {};
@@ -222,12 +276,17 @@ export function useAdaptiveColumns<T extends object>({ layout: pageLayout, colum
         const body = data.length > 0 ? { font, weight, spacing, copyPadding } : { font: previous.font, weight: previous.weight, spacing: previous.spacing, copyPadding: previous.copyPadding };
         const nextTimestampWidth = timestampWidth ?? previous.timestampWidth;
         const nextClientWidth = clientWidth ?? previous.clientWidth;
-        if (JSON.stringify(previous.numericWidths) === JSON.stringify(numericWidths) && previous.clientWidth === nextClientWidth && previous.timestampWidth === nextTimestampWidth && previous.width === width && previous.font === body.font && previous.weight === body.weight && previous.spacing === body.spacing && previous.rem === rem && previous.copyPadding === body.copyPadding && previous.headerDensity === density && JSON.stringify(previous.headers) === JSON.stringify(nextHeaders)) return previous;
-        return { ...previous, numericWidths, clientWidth: nextClientWidth, timestampWidth: nextTimestampWidth, width, ...body, rem, headerDensity: density, headers: nextHeaders };
+        if (previous.sizingReady === identitiesMeasured && JSON.stringify(previous.numericWidths) === JSON.stringify(numericWidths) && previous.clientWidth === nextClientWidth && previous.timestampWidth === nextTimestampWidth && previous.width === width && previous.font === body.font && previous.weight === body.weight && previous.spacing === body.spacing && previous.rem === rem && previous.copyPadding === body.copyPadding && previous.headerDensity === density && JSON.stringify(previous.headers) === JSON.stringify(nextHeaders)) return previous;
+        return { ...previous, numericWidths, clientWidth: nextClientWidth, timestampWidth: nextTimestampWidth, width, ...body, rem, headerDensity: density, sizingReady: identitiesMeasured, headers: nextHeaders };
       });
     };
     const schedule = () => { cancelAnimationFrame(frame); frame = requestAnimationFrame(measure); };
-    const fontsLoaded = () => { measure(); setMeasurement((previous) => ({ ...previous, revision: previous.revision + 1 })); };
+    const fontsLoaded = () => {
+      probeCache.current.numeric.clear();
+      probeCache.current.timestamp.clear();
+      measure();
+      setMeasurement((previous) => ({ ...previous, revision: previous.revision + 1 }));
+    };
     measure();
     const observer = new ResizeObserver(schedule);
     observer.observe(element);
@@ -237,23 +296,25 @@ export function useAdaptiveColumns<T extends object>({ layout: pageLayout, colum
         return target?.closest('[data-query-client]') || [...record.addedNodes].some((node) => node instanceof Element && (node.matches('[data-query-client]') || node.querySelector('[data-query-client]')));
       })) schedule();
     }) : undefined;
-    clientObserver?.observe(element, { childList: true, characterData: true, subtree: true });
+    clientObserver?.observe(element, { childList: true, characterData: true, subtree: true, attributes: true, attributeFilter: ['data-query-client-pending'] });
     document.fonts?.addEventListener('loadingdone', fontsLoaded);
     return () => { observer.disconnect(); clientObserver?.disconnect(); cancelAnimationFrame(frame); document.fonts?.removeEventListener('loadingdone', fontsLoaded); };
-  }, [automatic, columns, density, layout.columnVisibility, data, pageLayout, referenceText, text]);
+  }, [automatic, columns, density, layout.columnVisibility, data, pageLayout, referenceText, text, sizingReady]);
 
   React.useEffect(() => {
     if (pageLayout !== 'query-log') return;
     if (!automatic) { setRetained({ key: '', widths: {} }); return; }
-    if (!sizingReady || !layout.minimums) return;
-    const frame = requestAnimationFrame(() => {
+    if (!sizingReady || !measurement.sizingReady || !layout.minimums) return;
+    // Query-cache notifications can precede the cells' DOM commit. Let the
+    // mutation observer measure resolved labels before retaining their widths.
+    let frame = requestAnimationFrame(() => { frame = requestAnimationFrame(() => {
       setRetained((previous) => {
         const widths = mergeQueryLogWidths(previous.key === sizingKey ? previous.widths : {}, layout.minimums!);
         return previous.key === sizingKey && JSON.stringify(previous.widths) === JSON.stringify(widths) ? previous : { key: sizingKey, widths };
       });
-    });
+    }); });
     return () => { cancelAnimationFrame(frame); };
-  }, [automatic, pageLayout, sizingReady, sizingKey, layout.minimums]);
+  }, [automatic, pageLayout, sizingReady, measurement.sizingReady, sizingKey, layout.minimums]);
 
   return { automatic, containerRef, ...layout, cellSx: singleLineCellSx, copySx: singleLineCopySx, headerSx: singleLineHeaderSx };
 }

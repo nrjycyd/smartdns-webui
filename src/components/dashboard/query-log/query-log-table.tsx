@@ -11,6 +11,8 @@ import {
   type MRT_ColumnDef as MRTColumnDef,
   type MRT_ColumnFiltersState as MRTColumnFiltersState,
   type MRT_PaginationState as MRTPaginationState,
+  type MRT_ColumnPinningState as MRTColumnPinningState,
+  type MRT_ColumnOrderState as MRTColumnOrderState,
   type MRT_SortingState as MRTSortingState,
   MRT_ActionMenuItem as MRTActionMenuItem,
   type MRT_Row as MRTRow,
@@ -42,7 +44,7 @@ import { getDomainTypeName, getDomainTypeId } from './domain-type';
 import { QueryClientIdentityCell } from './client-identity-cell';
 import { ScrollingPing } from './scrolling-ping';
 import { ClientActivityProvider } from '@/components/dashboard/clients/client-activity-provider';
-import { useClientIdentitySizingReady, useRefreshClientIdentities } from '@/components/dashboard/clients/client-identity-provider';
+import { ClientIdentityBatchProvider, useClientIdentitySizingReady, useRefreshClientIdentities } from '@/components/dashboard/clients/client-identity-provider';
 import { useClientNames } from '@/components/dashboard/clients/client-names-provider';
 import { formatQueryClientAddress } from './client-address';
 import { GroupLabel, useGroupAppearance } from './group-label';
@@ -59,6 +61,7 @@ interface UserApiResponse {
 };
 
 const FILTER_COLUMNS = new Set(['id', 'domain', 'domain_type', 'client', 'domain_group', 'is_blocked', 'reply_code']);
+const EMPTY_LOG_ROWS: DomainList[] = [];
 
 function TableQueryLogs(): React.JSX.Element {
   const { timeZone, formatTime } = useTimeDisplay();
@@ -70,6 +73,14 @@ function TableQueryLogs(): React.JSX.Element {
   const refreshClientIdentities = useRefreshClientIdentities();
   const { names, icons } = useClientNames();
   const [fitRevision, setFitRevision] = useState(0);
+  const [columnPinning, setColumnPinning] = useState<MRTColumnPinningState>(() => ({ right: window.innerWidth >= 1200 ? ['mrt-row-actions'] : [] }));
+
+  const [actionCell, setActionCell] = useState<MRTCell<DomainList> | null>(null);
+  const hasPinnedData = [...(columnPinning.left ?? []), ...(columnPinning.right ?? [])].some(id => id !== 'mrt-row-actions');
+
+  const [columnFilters, setColumnFilters] = useState<MRTColumnFiltersState>(
+    [],
+  );
 
   const columns = useMemo<MRTColumnDef<DomainList>[]>(
     () => [
@@ -259,10 +270,14 @@ function TableQueryLogs(): React.JSX.Element {
     [t, formatTime],
   );
 
+  const [columnOrder, setColumnOrder] = useState<MRTColumnOrderState>(() => [
+    'mrt-row-actions', ...columns.flatMap(column => {
+      const id = column.id ?? column.accessorKey;
+      return id ? [String(id)] : [];
+    }), 'mrt-row-spacer',
+  ]);
+
   const { checkSessionError } = useUser();
-  const [columnFilters, setColumnFilters] = useState<MRTColumnFiltersState>(
-    [],
-  );
   const [columnFilterFns, setColumnFilterFns] =
     useState<MRTColumnFilterFnsState>(
       () => Object.fromEntries(
@@ -285,11 +300,6 @@ function TableQueryLogs(): React.JSX.Element {
 
   const [tableLocales, setTableLocales] = useState(MRT_Localization_EN);
   const { enqueueSnackbar } = useSnackbar();
-  let isActionAlignRight = false;
-
-  if (window.innerWidth >= 1200) {
-    isActionAlignRight = true;
-  }
 
   React.useEffect(() => {
     const searchParams = new URLSearchParams(search);
@@ -345,7 +355,7 @@ function TableQueryLogs(): React.JSX.Element {
   }, [search]);
 
   const {
-    data: { data = [], meta } = {},
+    data: { data = EMPTY_LOG_ROWS, meta } = {},
     isError,
     isRefetching,
     isPlaceholderData,
@@ -586,13 +596,20 @@ function TableQueryLogs(): React.JSX.Element {
   const widths = useAdaptiveColumns({ layout: 'query-log', columns, data, visibility: columnVisibility, density, manualSizing: columnSizing, text: widthText, referenceText: widthReferences, actions: true, optionalColumn: 'reply_code', resetKey: sizingScope, sizingReady });
   const horizontalPadding = `${queryLogPadding(density) / 16}rem`;
 
+  // Row identity changes for data and display settings, never for width measurement alone.
+  const renderRevision = JSON.stringify([density, i18n.language, timeZone, columnFilters, widths.columnVisibility, columnOrder, columnPinning, actionCell?.id]);
+  const rowModel = React.useMemo(() => ({ revision: renderRevision, data: data.map(row => ({ ...row })) }), [data, renderRevision]);
   const table = useMaterialReactTable({
     onDensityChange: previewDensity,
     columns,
-    data,
+    data: rowModel.data,
     localization: { ...tableLocales, toggleDensity: t('Preview table spacing (this page only)') },
     enableColumnResizing: !widths.automatic,
     layoutMode: 'grid-no-grow',
+    memoMode: widths.automatic && !hasPinnedData ? 'rows' : undefined,
+    onColumnOrderChange: setColumnOrder,
+    onColumnPinningChange: setColumnPinning,
+    onActionCellChange: setActionCell,
     muiTableContainerProps: { ref: widths.containerRef },
     muiTableBodyCellProps: ({ row, cell }) => ({
       'data-query-column': cell.column.id,
@@ -733,15 +750,15 @@ function TableQueryLogs(): React.JSX.Element {
     initialState: {
       columnVisibility,
       columnSizing,
-      columnPinning: {
-        right: isActionAlignRight ? ['mrt-row-actions'] : [],
-      },
       pagination: {
         pageIndex: 0,
         pageSize: pagination.pageSize,
       },
     },
     state: {
+      columnPinning,
+      columnOrder,
+      actionCell,
       density,
       columnFilters,
       columnFilterFns,
@@ -760,7 +777,7 @@ function TableQueryLogs(): React.JSX.Element {
     }),
   });
 
-  return (<ClientActivityProvider available><MaterialReactTable table={table} /></ClientActivityProvider>);
+  return (<ClientIdentityBatchProvider ips={visibleIps}><ClientActivityProvider available><MaterialReactTable table={table} /></ClientActivityProvider></ClientIdentityBatchProvider>);
 };
 
 const queryClient = new QueryClient({

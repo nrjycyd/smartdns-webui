@@ -12,6 +12,8 @@ import {
   type MRT_ColumnFiltersState as MRTColumnFiltersState,
   type MRT_PaginationState as MRTPaginationState,
   type MRT_SortingState as MRTSortingState,
+  type MRT_ColumnPinningState as MRTColumnPinningState,
+  type MRT_ColumnOrderState as MRTColumnOrderState,
   MRT_ActionMenuItem as MRTActionMenuItem,
   type MRT_Row as MRTRow,
   type MRT_Cell as MRTCell,
@@ -56,6 +58,7 @@ interface UserApiResponse {
 };
 
 const FILTER_COLUMNS = new Set(['id', 'client_ip', 'mac', 'hostname']);
+const EMPTY_CLIENT_ROWS: ClientList[] = [];
 
 function TableClients(): React.JSX.Element {
   const { timeZone, formatTime } = useTimeDisplay();
@@ -73,6 +76,10 @@ function TableClients(): React.JSX.Element {
 
   const [columnVisibility, setColumnVisibility] = React.useState(() => readColumnVisibility(COLUMN_VISIBILITY_KEY));
   const [columnSizing, setColumnSizing] = React.useState(() => readColumnSizing(COLUMN_SIZING_KEY));
+  const [columnPinning, setColumnPinning] = useState<MRTColumnPinningState>(() => ({ right: window.innerWidth >= 1200 ? ['mrt-row-actions'] : [] }));
+
+  const [actionCell, setActionCell] = useState<MRTCell<ClientList> | null>(null);
+  const hasPinnedData = [...(columnPinning.left ?? []), ...(columnPinning.right ?? [])].some(id => id !== 'mrt-row-actions');
 
   const columns = useMemo<MRTColumnDef<ClientList>[]>(
     () => [
@@ -124,6 +131,13 @@ function TableClients(): React.JSX.Element {
     [t, formatTime],
   );
 
+  const [columnOrder, setColumnOrder] = useState<MRTColumnOrderState>(() => [
+    'mrt-row-actions', ...columns.flatMap(column => {
+      const id = column.id ?? column.accessorKey;
+      return id ? [String(id)] : [];
+    }), 'mrt-row-spacer',
+  ]);
+
   const { checkSessionError } = useUser();
   const [columnFilters, setColumnFilters] = useState<MRTColumnFiltersState>(
     [],
@@ -146,7 +160,6 @@ function TableClients(): React.JSX.Element {
   const totalCountFromParams = React.useRef(false);
   const [tableLocales, setTableLocales] = useState(MRT_Localization_EN);
   const { enqueueSnackbar } = useSnackbar();
-  const [isActionAlignRight] = React.useState<boolean>(() => typeof window !== 'undefined' && window.innerWidth >= 1200);
 
   React.useEffect(() => {
     const searchParams = new URLSearchParams(search);
@@ -176,7 +189,7 @@ function TableClients(): React.JSX.Element {
   }, [search]);
 
   const {
-    data: { data = [], meta } = {},
+    data: { data = EMPTY_CLIENT_ROWS, meta } = {},
     dataUpdatedAt,
     isError,
     isRefetching,
@@ -350,13 +363,21 @@ function TableClients(): React.JSX.Element {
   }, [clientNames, formatTime]);
   const widths = useAdaptiveColumns({ layout: 'clients', columns, data, visibility: columnVisibility, density, manualSizing: columnSizing, text: widthText, actions: true });
 
+  // Keep row identity stable while column widths settle, and refresh all cells
+  // when a setting affecting their content, title or position changes.
+  const renderRevision = JSON.stringify([density, i18n.language, timeZone, columnFilters, widths.columnVisibility, columnOrder, columnPinning, actionCell?.id, clientNames]);
+  const rowModel = React.useMemo(() => ({ revision: renderRevision, data: data.map(row => ({ ...row })) }), [data, renderRevision]);
   const table = useMaterialReactTable({
     onDensityChange: previewDensity,
     columns,
-    data,
+    data: rowModel.data,
     localization: { ...tableLocales, toggleDensity: t('Preview table spacing (this page only)') },
     enableColumnResizing: !widths.automatic,
     layoutMode: 'grid-no-grow',
+    memoMode: widths.automatic && !hasPinnedData ? 'rows' : undefined,
+    onColumnOrderChange: setColumnOrder,
+    onColumnPinningChange: setColumnPinning,
+    onActionCellChange: setActionCell,
     muiTableContainerProps: { ref: widths.containerRef },
     muiTableBodyCellProps: ({ row, cell }) => ({ sx: widths.cellSx, title: widthText(row.original, cell.column.id) }),
     muiCopyButtonProps: { sx: widths.copySx },
@@ -474,11 +495,11 @@ function TableClients(): React.JSX.Element {
     initialState: {
       columnVisibility,
       columnSizing,
-      columnPinning: {
-        right: isActionAlignRight ? ['mrt-row-actions'] : [],
-      },
     },
     state: {
+      columnPinning,
+      columnOrder,
+      actionCell,
       density,
       columnFilters,
       columnFilterFns,

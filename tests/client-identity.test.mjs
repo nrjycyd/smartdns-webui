@@ -88,3 +88,32 @@ test('explicit no-icon and default fallback retain the existing name and copy de
   assert.equal(hidden.tooltip, 'Samsung-S22 · 10.0.0.6');
   assert.equal(getClientDeviceIdentity('10.0.0.6', names, {}, client).icon, undefined);
 });
+
+const { clientSnapshotIPs, createClientSnapshot, snapshotClient, CLIENT_SNAPSHOT_LIMIT } = await load('client-snapshot', { './client-identity': { normalizeClientIp } });
+test('bounded snapshots share normalized IPv6 and preserve exact records', () => {
+  const entry = { client_ip: ipv6, mac: 'E2:AE:64:F7:3E:EE', last_query_timestamp: 123 };
+  const snapshot = createClientSnapshot({ client_list: [entry], total_count: 1 });
+  assert.equal(snapshotClient(snapshot, 'fd66:911f:3a47:0:e167:07d3:e6d0:ba4a'), entry);
+  assert.equal(snapshotClient(snapshot, '192.0.2.1'), null);
+});
+test('a missing client in a partial snapshot requires an exact-IP fallback', () => {
+  const entry = { client_ip: '192.0.2.1' };
+  const snapshot = createClientSnapshot({ client_list: [entry], total_count: 1000 });
+  assert.equal(snapshotClient(snapshot, entry.client_ip), entry);
+  assert.equal(snapshotClient(snapshot, '192.0.2.2'), undefined);
+});
+test('empty complete snapshots distinguish absence from incomplete data', () => {
+  assert.equal(snapshotClient(createClientSnapshot({ client_list: [], total_count: 0 }), '192.0.2.1'), null);
+  assert.equal(snapshotClient(createClientSnapshot({ client_list: [], total_count: 1 }), '192.0.2.1'), undefined);
+});
+test('invalid or oversized snapshots are rejected so exact lookups can recover', () => {
+  for (const value of [{}, { client_list: [], total_count: -1 }, { client_list: [{}], total_count: 1 }, { client_list: [{ client_ip: 'x' }], total_count: 0 }, { client_list: Array.from({ length: CLIENT_SNAPSHOT_LIMIT + 1 }, () => ({ client_ip: '192.0.2.1' })), total_count: 999 }]) {
+    assert.throws(() => createClientSnapshot(value));
+  }
+});
+
+test('small pages keep exact lookups and repeated IPs do not trigger a snapshot', () => {
+  assert.equal(clientSnapshotIPs(Array(100).fill('192.0.2.1')).size, 0);
+  assert.equal(clientSnapshotIPs(['192.0.2.1', '192.0.2.2', '192.0.2.3']).size, 0);
+  assert.equal(clientSnapshotIPs(['192.0.2.1', '192.0.2.2', '192.0.2.3', '192.0.2.4']).size, 4);
+});

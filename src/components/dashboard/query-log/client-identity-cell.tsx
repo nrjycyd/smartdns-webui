@@ -35,8 +35,8 @@ async function copyClientDetails(text: string): Promise<void> {
   }
 }
 
-export function QueryClientIdentityCell({ ip }: { ip: string }): React.JSX.Element {
-  const { name, tooltip, icon, customColor, lastQueryTimestamp, observedAt, lookupAvailable } = useClientIdentity(ip, true);
+function QueryClientIdentityCellContent({ ip }: { ip: string }): React.JSX.Element {
+  const { name, tooltip, icon, customColor, lastQueryTimestamp, observedAt, lookupPending, lookupAvailable } = useClientIdentity(ip, true);
   const { now } = useClientActivityClock();
   const { formatTime } = useTimeDisplay();
   const { enqueueSnackbar } = useSnackbar();
@@ -49,6 +49,7 @@ export function QueryClientIdentityCell({ ip }: { ip: string }): React.JSX.Eleme
     <Tooltip title={title}>
       <Button
         data-query-client
+        data-query-client-pending={lookupPending ? true : undefined}
         type="button" size="small" variant="text" aria-label={`${t('Copy')}: ${tooltip}`}
         sx={{ ...singleLineCopySx, padding: 0, margin: '-0.25rem 0', gap: 0.75, fontFamily: 'inherit', fontSize: 'inherit', letterSpacing: 'inherit', color: 'inherit', textTransform: 'none', textAlign: 'left' }}
         onClick={async (event) => {
@@ -64,3 +65,5 @@ export function QueryClientIdentityCell({ ip }: { ip: string }): React.JSX.Eleme
     </Tooltip>
   );
 }
+
+export const QueryClientIdentityCell = React.memo(QueryClientIdentityCellContent);
