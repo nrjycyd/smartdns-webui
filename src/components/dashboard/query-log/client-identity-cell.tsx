@@ -6,7 +6,7 @@ import Tooltip from '@mui/material/Tooltip';
 import Box from '@mui/material/Box';
 import { useSnackbar } from 'notistack';
 import { useTranslation } from 'react-i18next';
-import { useClientIdentity } from '@/components/dashboard/clients/client-identity-provider';
+import { useQueryLogClientIdentity } from '@/components/dashboard/clients/client-identity-provider';
 import { singleLineCopySx } from '@/components/dashboard/layout/column-widths';
 import { formatQueryClientAddress } from './client-address';
 import { ClientDeviceIcon } from '@/components/dashboard/clients/client-device-icon';
@@ -36,7 +36,7 @@ async function copyClientDetails(text: string): Promise<void> {
 }
 
 function QueryClientIdentityCellContent({ ip }: { ip: string }): React.JSX.Element {
-  const { name, tooltip, icon, customColor, lastQueryTimestamp, observedAt, lookupPending, lookupAvailable } = useClientIdentity(ip, true);
+  const { name, tooltip, icon, customColor, lastQueryTimestamp, observedAt, lookupPending, lookupAvailable } = useQueryLogClientIdentity(ip);
   const { now } = useClientActivityClock();
   const { formatTime } = useTimeDisplay();
   const { enqueueSnackbar } = useSnackbar();

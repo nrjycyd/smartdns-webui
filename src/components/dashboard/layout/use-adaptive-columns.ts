@@ -18,11 +18,6 @@ interface Column {
   enableColumnActions?: boolean;
 }
 
-function outerWidth(node: Element): number {
-  const style = getComputedStyle(node);
-  return Math.max(node.getBoundingClientRect().width, node.scrollWidth) + (Number.parseFloat(style.marginLeft) || 0) + (Number.parseFloat(style.marginRight) || 0);
-}
-
 function saveMeasuredWidth(cache: Map<string, number>, key: string, width: number, limit = 128): number {
   if (cache.size >= limit) cache.clear();
   cache.set(key, width);
@@ -30,8 +25,7 @@ function saveMeasuredWidth(cache: Map<string, number>, key: string, width: numbe
 }
 
 // Content widths are reusable only under the same actual browser typography.
-function typographyKey(node: Element): string {
-  const style = getComputedStyle(node);
+function typographyKey(style: CSSStyleDeclaration): string {
   return JSON.stringify([
     ...(['fontFamily', 'fontSize', 'fontWeight', 'fontStyle', 'fontStretch', 'fontVariant', 'fontVariantNumeric', 'fontFeatureSettings', 'fontVariationSettings', 'fontOpticalSizing', 'fontKerning', 'fontVariantLigatures', 'fontSynthesis', 'letterSpacing', 'wordSpacing', 'textTransform', 'direction', 'writingMode', 'textOrientation', 'zoom', 'textRendering'] as const).map(property => style[property]),
     window.devicePixelRatio, document.fonts?.status,
@@ -150,17 +144,33 @@ export function useAdaptiveColumns<T extends object>({ layout: pageLayout, colum
     if (!element) return;
     let frame = 0;
     const measure = () => {
+      // Reuse reads within this pass only; never retain geometry across frames.
+      const styles = new WeakMap<Element, CSSStyleDeclaration>();
+      const outerWidths = new WeakMap<Element, number>();
+      const readStyle = (node: Element) => {
+        let style = styles.get(node);
+        if (!style) { style = getComputedStyle(node); styles.set(node, style); }
+        return style;
+      };
+      const outerWidth = (node: Element) => {
+        const cached = outerWidths.get(node);
+        if (cached !== undefined) return cached;
+        const style = readStyle(node);
+        const width = Math.max(node.getBoundingClientRect().width, node.scrollWidth) + (Number.parseFloat(style.marginLeft) || 0) + (Number.parseFloat(style.marginRight) || 0);
+        outerWidths.set(node, width);
+        return width;
+      };
       const copyButton = element.querySelector('tbody td .MuiButton-root');
-      const style = getComputedStyle(copyButton ?? element.querySelector('td') ?? element.querySelector('th') ?? element);
+      const style = readStyle(copyButton ?? element.querySelector('td') ?? element.querySelector('th') ?? element);
       const width = Math.floor(element.clientWidth);
       const font = `${style.fontSize} ${style.fontFamily}`;
       const weight = style.fontWeight;
       const spacing = Number.parseFloat(style.letterSpacing) || 0;
-      const rem = Number.parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
+      const rem = Number.parseFloat(readStyle(document.documentElement).fontSize) || 16;
       const copyPadding = copyButton ? (Number.parseFloat(style.paddingLeft) || 0) + (Number.parseFloat(style.paddingRight) || 0) : window.isSecureContext ? COPY_BUTTON_INLINE_PADDING * 2 : 0;
       const context = document.createElement('canvas').getContext('2d');
       const horizontalInset = (node: HTMLElement) => {
-        const nodeStyle = getComputedStyle(node);
+        const nodeStyle = readStyle(node);
         // Use target cell padding while the density transition is in progress.
         const inset = pageLayout === 'query-log' && node.tagName === 'TD' ? queryLogPadding(density, rem) * 2
           : (Number.parseFloat(nodeStyle.paddingLeft) || 0) + (Number.parseFloat(nodeStyle.paddingRight) || 0);
@@ -168,7 +178,7 @@ export function useAdaptiveColumns<T extends object>({ layout: pageLayout, colum
       };
       const numericWidths: Record<string, number> = {};
       if (pageLayout === 'query-log') {
-        const probes: { id: string; key: string; node: HTMLSpanElement }[] = [];
+        const probes: { id: string; key: string; leaf: HTMLElement; node: HTMLSpanElement }[] = [];
         try {
           for (const id of ['id', 'ping_time', 'query_time', 'reply_code']) {
             const cell = element.querySelector<HTMLElement>(`tbody [data-query-column="${id}"]`);
@@ -176,7 +186,7 @@ export function useAdaptiveColumns<T extends object>({ layout: pageLayout, colum
             const leaf = cell.querySelector<HTMLElement>('.MuiButton-root') ?? cell;
             const samples = id === 'ping_time' ? (referenceText?.[id] ?? ['99.9 ms'])
               : [...(referenceText?.[id] ?? []), ...data.map((row) => text ? text(row, id) : String(row[id as keyof T] ?? ''))];
-            const key = JSON.stringify([typographyKey(leaf), samples]);
+            const key = JSON.stringify([typographyKey(readStyle(leaf)), samples]);
             const cached = probeCache.current.numeric.get(key);
             if (cached !== undefined) {
               numericWidths[id] = Math.ceil(cached + queryLogPadding(density, rem) * 2 + 4);
@@ -184,12 +194,12 @@ export function useAdaptiveColumns<T extends object>({ layout: pageLayout, colum
             }
             const probe = document.createElement('span');
             probe.style.cssText = 'position:fixed;visibility:hidden;display:inline-block;width:max-content;white-space:pre;font:inherit;font-variant-numeric:inherit;font-feature-settings:inherit;letter-spacing:inherit;padding:0;border:0;height:0;overflow:hidden;pointer-events:none;';
-            leaf.append(probe);
             // Preformatted lines retain exact browser typography but need only one layout read.
             probe.textContent = samples.join('\n');
-            probes.push({ id, key, node: probe });
+            probes.push({ id, key, leaf, node: probe });
           }
           // Finish DOM writes before reading geometry to avoid one layout per column.
+          for (const { leaf, node } of probes) leaf.append(node);
           for (const { id, key, node } of probes) numericWidths[id] = Math.ceil(saveMeasuredWidth(probeCache.current.numeric, key, node.getBoundingClientRect().width) + queryLogPadding(density, rem) * 2 + 4);
         } finally { for (const { node } of probes) node.remove(); }
       }
@@ -200,12 +210,12 @@ export function useAdaptiveColumns<T extends object>({ layout: pageLayout, colum
         for (const button of element.querySelectorAll<HTMLElement>('tbody [data-query-client]')) {
           const label = button.querySelector<HTMLElement>('[data-query-client-text]');
           if (!label) continue;
-          const labelStyle = getComputedStyle(label);
+          const labelStyle = readStyle(label);
           const value = label.textContent ?? '';
           context.font = `${labelStyle.fontWeight} ${labelStyle.fontSize} ${labelStyle.fontFamily}`;
           const labelWidth = context.measureText(value).width + Math.max(0, value.length - 1) * (Number.parseFloat(labelStyle.letterSpacing) || 0);
           const parts = [...button.querySelectorAll<HTMLElement>(':scope > [data-client-device-icon], :scope > [data-query-client-text], :scope > [data-query-client-unknown]')];
-          const buttonStyle = getComputedStyle(button);
+          const buttonStyle = readStyle(button);
           const decorations = parts.filter((part) => part !== label).reduce((sum, part) => sum + outerWidth(part), 0);
           const gaps = Math.max(0, parts.length - 1) * (Number.parseFloat(buttonStyle.columnGap) || 0);
           let inset = 0;
@@ -221,7 +231,7 @@ export function useAdaptiveColumns<T extends object>({ layout: pageLayout, colum
       let timestampWidth: number | undefined;
       const timestamp = element.querySelector<HTMLElement>('[data-query-timestamp]');
       if (pageLayout === 'query-log' && timestamp && referenceText?.timestamp) {
-        const key = JSON.stringify([typographyKey(timestamp), referenceText.timestamp]);
+        const key = JSON.stringify([typographyKey(readStyle(timestamp)), referenceText.timestamp]);
         let contentWidth = probeCache.current.timestamp.get(key);
         if (contentWidth === undefined) {
           const probe = document.createElement('span');
@@ -254,8 +264,8 @@ export function useAdaptiveColumns<T extends object>({ layout: pageLayout, colum
       for (const th of element.querySelectorAll<HTMLTableCellElement>('thead th')) {
         const wrapper = th.querySelector('.Mui-TableHeadCell-Content-Wrapper');
         if (!wrapper?.textContent || !context) continue;
-        const headerStyle = getComputedStyle(wrapper);
-        const cellStyle = getComputedStyle(th);
+        const headerStyle = readStyle(wrapper);
+        const cellStyle = readStyle(th);
         context.font = `${headerStyle.fontWeight} ${headerStyle.fontSize} ${headerStyle.fontFamily}`;
         const title = wrapper.textContent;
         const spacing = Number.parseFloat(headerStyle.letterSpacing) || 0;

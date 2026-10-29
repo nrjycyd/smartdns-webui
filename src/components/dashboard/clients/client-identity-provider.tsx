@@ -2,14 +2,20 @@
 
 import * as React from 'react';
 import { notifyManager, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
-import { smartdnsServer } from '@/lib/backend/server';
+import { smartdnsServer, type ClientList } from '@/lib/backend/server';
 import { useClientNames } from './client-names-provider';
 import { getClientDeviceIdentity, normalizeClientIp } from './client-identity';
 import { CLIENT_REFRESH_INTERVAL } from './client-activity';
-import { CLIENT_SNAPSHOT_LIMIT, clientSnapshotIPs, createClientSnapshot, snapshotClient } from './client-snapshot';
+import { CLIENT_SNAPSHOT_LIMIT, CLIENT_SNAPSHOT_MIN_IPS, clientSnapshotIPs, createClientSnapshot, snapshotClient, type ClientSnapshot } from './client-snapshot';
 
 const ClientIdentityQueryContext = React.createContext<QueryClient | undefined>(undefined);
-const ClientBatchContext = React.createContext<{ managed: ReadonlySet<string>; covered: ReadonlySet<string>; pending: boolean; failedAt: number } | null>(null);
+interface ClientLookup {
+  data: ClientList | null | undefined;
+  dataUpdatedAt: number;
+  isError: boolean;
+  isPending: boolean;
+}
+const ClientBatchContext = React.createContext<{ managed: ReadonlySet<string>; covered: ReadonlySet<string>; pending: boolean; failedAt: number; lookups: ReadonlyMap<string, ClientLookup>; lastSnapshot: ClientSnapshot | undefined; snapshotUpdatedAt: number } | null>(null);
 
 export function ClientIdentityProvider({ children }: { children: React.ReactNode }): React.JSX.Element {
   const client = useQueryClient();
@@ -64,8 +70,67 @@ export function ClientIdentityBatchProvider({ ips, children }: { ips: readonly s
   const covered = React.useMemo(() => new Set<string>(JSON.parse(coveredKey) as string[]), [coveredKey]);
   const pending = !snapshot.data && snapshot.isPending;
   const failedAt = snapshot.isError ? snapshot.errorUpdatedAt : 0;
-  const value = React.useMemo(() => ({ managed, covered, pending, failedAt }), [managed, covered, pending, failedAt]);
-  return <ClientBatchContext.Provider value={value}>{children}</ClientBatchContext.Provider>;
+  const lookups = React.useMemo(() => {
+    const result = new Map<string, ClientLookup>();
+    if (snapshot.isError) return result;
+    for (const ip of managed) {
+      const entry = snapshot.data ? snapshotClient(snapshot.data, ip) : undefined;
+      if (entry !== undefined) {
+        result.set(ip, { data: entry, dataUpdatedAt: snapshot.dataUpdatedAt, isError: false, isPending: false });
+      } else if (pending) {
+        const cached = client.getQueryState<ClientList | null>(['client-name-lookup', ip]);
+        result.set(ip, { data: cached?.data, dataUpdatedAt: cached?.dataUpdatedAt ?? 0, isError: cached?.status === 'error', isPending: !cached || cached.status === 'pending' });
+      }
+    }
+    return result;
+  }, [client, managed, pending, snapshot.data, snapshot.dataUpdatedAt, snapshot.isError]);
+  const value = React.useMemo(() => ({ managed, covered, pending, failedAt, lookups, lastSnapshot: snapshot.data, snapshotUpdatedAt: snapshot.dataUpdatedAt }), [managed, covered, pending, failedAt, lookups, snapshot.data, snapshot.dataUpdatedAt]);
+  const uniqueIps = React.useMemo(() => {
+    const unique = new Map<string, string>();
+    for (const ip of ips) {
+      const key = normalizeClientIp(ip);
+      if (key && !unique.has(key)) unique.set(key, ip);
+    }
+    return [...unique.values()];
+  }, [ips]);
+  return <ClientBatchContext.Provider value={value}>
+    <React.Fragment key="lookups">{uniqueIps.filter(ip => !lookups.has(normalizeClientIp(ip))).map(ip => <ClientIdentityLookup key={normalizeClientIp(ip)} ip={ip} />)}</React.Fragment>
+    <React.Fragment key="content">{children}</React.Fragment>
+  </ClientBatchContext.Provider>;
+}
+
+// One observer per distinct fallback IP, regardless of how many rows repeat it.
+function ClientIdentityLookup({ ip }: { ip: string }): null {
+  useClientIdentity(ip, true);
+  return null;
+}
+
+// Covered rows share one query observer. Only fallback rows subscribe to their
+// exact-IP cache entry; switching data sources never replaces the cell DOM.
+export function useQueryLogClientIdentity(ip: string): ReturnType<typeof useClientIdentity> {
+  const client = useIdentityQueryClient();
+  const batch = React.useContext(ClientBatchContext);
+  const { names, icons, iconColors, ready } = useClientNames();
+  const key = normalizeClientIp(ip);
+  const lookup = batch?.lookups.get(key);
+  const needsFallback = !lookup;
+  const subscribe = React.useCallback((notify: () => void) => {
+    if (!needsFallback) return () => {};
+    return client.getQueryCache().subscribe(event => {
+      if (event.query.queryKey[0] === 'client-name-lookup' && event.query.queryKey[1] === key) notify();
+    });
+  }, [client, key, needsFallback]);
+  const snapshot = React.useCallback(() => needsFallback ? client.getQueryState<ClientList | null>(['client-name-lookup', key]) : undefined, [client, key, needsFallback]);
+  const cached = React.useSyncExternalStore(subscribe, snapshot, snapshot);
+  // Inactive exact-IP entries may have been collected while the snapshot stayed
+  // mounted. Retain its last identity on failure until an exact result replaces it.
+  const stale = !lookup && batch?.lastSnapshot ? snapshotClient(batch.lastSnapshot, key) : undefined;
+  const data = lookup ? lookup.data : cached?.data === undefined ? stale : cached.data;
+  const observedAt = lookup ? lookup.dataUpdatedAt : cached?.data === undefined ? stale === undefined ? 0 : batch?.snapshotUpdatedAt ?? 0 : cached.dataUpdatedAt;
+  const isError = lookup ? lookup.isError : cached?.status === 'error';
+  const isPending = lookup ? lookup.isPending : stale === undefined && (!cached || cached.status === 'pending');
+  const managed = batch?.managed.has(key) ?? false;
+  return { ...getClientDeviceIdentity(ip, names, icons, data, iconColors), observedAt, lookupPending: isPending && !isError, lookupAvailable: ready && !isError && !isPending && Boolean(data) && (!managed || !batch?.failedAt || observedAt >= batch.failedAt) };
 }
 
 export function useClientIdentity(ip: string, withDeviceIcon = false) {
@@ -102,16 +167,30 @@ export function useRefreshClientIdentities(): () => void {
   }, [client]);
 }
 
-// Subscribe to readiness only; cells own the existing, deduplicated requests.
+// Coalesce the synchronous cache writes of one snapshot before checking every IP.
 export function useClientIdentitySizingReady(ips: readonly string[]): boolean {
   const client = useIdentityQueryClient();
   const keys = React.useMemo(() => new Set(ips.map((ip) => normalizeClientIp(ip))), [ips]);
-  const subscribe = React.useCallback((notify: () => void) => client.getQueryCache().subscribe((event) => {
-    if (event.query.queryKey[0] === 'client-name-lookup' && keys.has(String(event.query.queryKey[1]))) notify();
-  }), [client, keys]);
-  const snapshot = React.useCallback(() => keys.size > 0 && [...keys].every((key) => {
-    const status = client.getQueryState(['client-name-lookup', key])?.status;
-    return status === 'success' || status === 'error';
-  }), [client, keys]);
+  const subscribe = React.useCallback((notify: () => void) => {
+    let active = true;
+    let scheduled = false;
+    const unsubscribe = client.getQueryCache().subscribe((event) => {
+      const kind = event.query.queryKey[0];
+      if ((kind !== 'client-identity-snapshot' && (kind !== 'client-name-lookup' || !keys.has(String(event.query.queryKey[1])))) || scheduled) return;
+      scheduled = true;
+      queueMicrotask(() => { scheduled = false; if (active) notify(); });
+    });
+    return () => { active = false; unsubscribe(); };
+  }, [client, keys]);
+  const snapshot = React.useCallback(() => {
+    const batch = keys.size >= CLIENT_SNAPSHOT_MIN_IPS ? client.getQueryState<ClientSnapshot>(['client-identity-snapshot']) : undefined;
+    return keys.size > 0 && [...keys].every((key) => {
+      // Covered rows remain ready even if their unobserved exact-IP cache
+      // entries are collected; the active snapshot owns their live data.
+      if (batch?.status === 'success' && batch.data && snapshotClient(batch.data, key) !== undefined) return true;
+      const status = client.getQueryState(['client-name-lookup', key])?.status;
+      return status === 'success' || status === 'error';
+    });
+  }, [client, keys]);
   return React.useSyncExternalStore(subscribe, snapshot, () => false);
 }
