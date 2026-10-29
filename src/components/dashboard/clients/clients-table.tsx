@@ -9,6 +9,9 @@ import {
   useMaterialReactTable,
   type MRT_ColumnFilterFnsState as MRTColumnFilterFnsState,
   type MRT_ColumnDef as MRTColumnDef,
+  type MRT_TableOptions as MRTTableOptions,
+  type MRT_ColumnPinningState as MRTColumnPinningState,
+  type MRT_ColumnOrderState as MRTColumnOrderState,
   type MRT_ColumnFiltersState as MRTColumnFiltersState,
   type MRT_PaginationState as MRTPaginationState,
   type MRT_SortingState as MRTSortingState,
@@ -17,7 +20,7 @@ import {
   type MRT_Cell as MRTCell,
   type MRT_TableInstance as MRTTableInstance,
 } from 'material-react-table';
-import { Card, IconButton, Tooltip } from '@mui/material';
+import { Card, IconButton, Tooltip, LinearProgress } from '@mui/material';
 import { createTheme, useColorScheme } from '@mui/material/styles';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import { moment, filterTimestamp } from '@/lib/display-time';
@@ -43,6 +46,7 @@ import { ClientNameDialog } from './client-name-dialog';
 import { getClientName } from './client-names';
 import { useClientNames } from './client-names-provider';
 import { useRefreshClientIdentities } from './client-identity-provider';
+import { withCopyCells } from '@/components/dashboard/layout/table-copy-cell';
 import { useAdaptiveColumns } from '@/components/dashboard/layout/use-adaptive-columns';
 import { ClientActivityProvider } from './client-activity-provider';
 import { CLIENT_REFRESH_INTERVAL } from './client-activity';
@@ -57,9 +61,18 @@ interface UserApiResponse {
 
 const FILTER_COLUMNS = new Set(['id', 'client_ip', 'mac', 'hostname']);
 
+function ClientsMaterialTable({ options }: { options: MRTTableOptions<ClientList> }): React.JSX.Element {
+  const table = useMaterialReactTable(options);
+  return <MaterialReactTable table={table} />;
+}
+
 function TableClients(): React.JSX.Element {
   const { timeZone, formatTime } = useTimeDisplay();
   const { names: clientNames } = useClientNames();
+  const [columnPinning, setColumnPinning] = useState<MRTColumnPinningState>(() => ({ right: window.innerWidth >= 1200 ? ['mrt-row-actions'] : [] }));
+  const [columnOrder, setColumnOrder] = useState<MRTColumnOrderState>([]);
+  const [actionCell, setActionCell] = useState<MRTCell<ClientList> | null>(null);
+  const hasPinnedData = [...(columnPinning.left ?? []), ...(columnPinning.right ?? [])].some(id => id !== 'mrt-row-actions');
   const [editingClient, setEditingClient] = useState<ClientList | null>(null);
   const [density, previewDensity] = useTableDensityPreview();
   const { t, i18n } = useTranslation();
@@ -146,7 +159,6 @@ function TableClients(): React.JSX.Element {
   const totalCountFromParams = React.useRef(false);
   const [tableLocales, setTableLocales] = useState(MRT_Localization_EN);
   const { enqueueSnackbar } = useSnackbar();
-  const [isActionAlignRight] = React.useState<boolean>(() => typeof window !== 'undefined' && window.innerWidth >= 1200);
 
   React.useEffect(() => {
     const searchParams = new URLSearchParams(search);
@@ -350,16 +362,22 @@ function TableClients(): React.JSX.Element {
   }, [clientNames, formatTime]);
   const widths = useAdaptiveColumns({ layout: 'clients', columns, data, visibility: columnVisibility, density, manualSizing: columnSizing, text: widthText, actions: true });
 
-  const table = useMaterialReactTable({
+  const renderRevision = JSON.stringify([density, i18n.language, timeZone, columnFilters, widths.columnVisibility, columnOrder, columnPinning, actionCell?.id, clientNames]);
+  const copyColumns = React.useMemo(() => withCopyCells(columns, { ...tableLocales, copyFailed: t('Copy failed') }), [columns, tableLocales, t]);
+  const rowModel = React.useMemo(() => ({ revision: [renderRevision, copyColumns], data: data.map(row => ({ ...row })) }), [data, renderRevision, copyColumns]);
+  const options: MRTTableOptions<ClientList> = {
     onDensityChange: previewDensity,
-    columns,
-    data,
+    columns: copyColumns,
+    data: rowModel.data,
     localization: { ...tableLocales, toggleDensity: t('Preview table spacing (this page only)') },
     enableColumnResizing: !widths.automatic,
     layoutMode: 'grid-no-grow',
+    memoMode: widths.automatic && !hasPinnedData ? 'rows' : undefined,
+    onColumnOrderChange: setColumnOrder,
+    onColumnPinningChange: setColumnPinning,
+    onActionCellChange: setActionCell,
     muiTableContainerProps: { ref: widths.containerRef },
     muiTableBodyCellProps: ({ row, cell }) => ({ sx: widths.cellSx, title: widthText(row.original, cell.column.id) }),
-    muiCopyButtonProps: { sx: widths.copySx },
     muiTableHeadCellProps: { sx: widths.headerSx },
     enableSorting: false,
     enableColumnOrdering: true,
@@ -474,11 +492,11 @@ function TableClients(): React.JSX.Element {
     initialState: {
       columnVisibility,
       columnSizing,
-      columnPinning: {
-        right: isActionAlignRight ? ['mrt-row-actions'] : [],
-      },
     },
     state: {
+      columnPinning,
+      columnOrder,
+      actionCell,
       density,
       columnFilters,
       columnFilterFns,
@@ -495,9 +513,9 @@ function TableClients(): React.JSX.Element {
     mrtTheme: (_theme) => ({
       baseBackgroundColor,
     }),
-  });
+  };
 
-  return (<ClientActivityProvider available={!isError && !isLoading && !isPlaceholderData} observedAt={dataUpdatedAt}><MaterialReactTable table={table} />{editingClient && <ClientNameDialog key={editingClient.id} client={editingClient} onClose={() => { setEditingClient(null); }} />}</ClientActivityProvider>);
+  return (<ClientActivityProvider available={!isError && !isLoading && !isPlaceholderData} observedAt={dataUpdatedAt}>{!shouldFetchData || isLoading ? <LinearProgress sx={{ minHeight: 4, my: 8 }} aria-label={t('Loading')} /> : <ClientsMaterialTable options={options} />}{editingClient && <ClientNameDialog key={editingClient.id} client={editingClient} onClose={() => { setEditingClient(null); }} />}</ClientActivityProvider>);
 };
 
 const queryClient = new QueryClient({

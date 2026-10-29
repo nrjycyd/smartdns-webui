@@ -251,5 +251,9 @@
     "Import failed and some settings could not be restored. Check browser storage before retrying.": "导入失败，部分设置无法还原，请检查浏览器存储后重试。",
     "Could not import settings. Your existing settings were preserved.": "导入失败，原有设置已保留。",
     "Validated {{count}} settings. Import replaces the settings in this file and reloads the page.": "已校验 {{count}} 项设置。导入将替换文件包含的设置，并刷新页面。",
-    "Current last query": "当前最近查询"
+    "Current last query": "当前最近查询",
+  "Could not load timezone rules.": "无法加载时区规则。",
+  "Copy failed": "复制失败",
+  "Retry": "重试",
+  "Loading": "加载中"
 }

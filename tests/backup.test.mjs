@@ -10,7 +10,7 @@ const require = createRequire(import.meta.url);
 function load(file) {
   const exports = {};
   const source = ts.transpileModule(readFileSync(file, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, esModuleInterop: true } }).outputText;
-  new Function('exports', 'require', source)(exports, name => name.startsWith('.') ? load(path.resolve(path.dirname(file), `${name}.ts`)) : require(name));
+  new Function('exports', 'require', source)(exports, name => name.startsWith('.') ? (name.endsWith('.json') ? JSON.parse(readFileSync(path.resolve(path.dirname(file), name), 'utf8')) : load(path.resolve(path.dirname(file), `${name}.ts`))) : require(name));
   return exports;
 }
 const { BACKUP_KEYS, exportBackup, parseBackup, restoreBackup } = load(fileURLToPath(new URL('../src/components/dashboard/settings/backup-data.ts', import.meta.url)));

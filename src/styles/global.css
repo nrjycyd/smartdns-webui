@@ -43,3 +43,86 @@ body {
   right: 20px;
   color: rgba(0, 0, 0, 0.08);
 }
+/* Shared table rules avoid running the style engine once per data cell. */
+.query-log-table tbody td {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding-left: var(--query-cell-padding);
+  padding-right: var(--query-cell-padding);
+  text-align: left;
+  justify-content: flex-start;
+}
+.query-log-table tbody td[data-query-align="center"] { text-align: center; justify-content: center; }
+.query-log-table tbody td[data-query-align="right"] { text-align: right; justify-content: flex-end; }
+.query-log-table tbody td[data-query-numeric="true"] { font-variant-numeric: tabular-nums; }
+.query-log-table tbody td > span { min-width: 0; max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.query-log-table tbody td .MuiButton-root {
+  width: 100%; min-width: 0; max-width: 100%; padding-left: 0; padding-right: 0;
+  margin-left: 0; margin-right: 0; justify-content: inherit; white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis;
+}
+.query-log-table tbody td .MuiButton-root > span { min-width: 0; max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.query-log-table tbody td .query-client-button {
+  padding: 0; margin-top: -0.25rem; margin-bottom: -0.25rem; gap: 6px;
+  font-family: inherit; font-size: inherit; letter-spacing: inherit; color: inherit;
+  text-transform: none; text-align: left;
+}
+.query-client-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.query-client-unknown { flex-shrink: 0; color: var(--mui-palette-text-secondary); font-size: 12px; }
+.query-log-table tbody td .query-type-label {
+  display: inline-flex; align-items: center; justify-content: center; vertical-align: middle;
+  box-sizing: border-box; min-width: 22px; height: 18px; max-width: 100%; text-align: center;
+  font-family: "Roboto Mono", ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: 11px; font-weight: 500; line-height: 1; letter-spacing: normal;
+  padding: 0 3px; border: 1px solid currentColor; border-radius: 999px;
+  background: transparent; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  color: #8A929B;
+}
+.query-log-table tbody td .query-type-label[data-dns-type="1"] { color: #1F7AE0; }
+.query-log-table tbody td .query-type-label[data-dns-type="28"] { color: #16A34A; }
+.query-log-table tbody td .query-type-label[data-dns-type="65"] { color: #D9488F; }
+.dark .query-log-table tbody td .query-type-label { color: #B9C3CE; }
+.dark .query-log-table tbody td .query-type-label[data-dns-type="1"] { color: #80B6F5; }
+.dark .query-log-table tbody td .query-type-label[data-dns-type="28"] { color: #6DD995; }
+.dark .query-log-table tbody td .query-type-label[data-dns-type="65"] { color: #F29BC5; }
+
+.query-log-table tbody td .query-status-label {
+  display: inline-flex; align-items: center; justify-content: center; max-width: 100%; height: 24px;
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  font-size: 0.8125rem; line-height: 1.5; color: var(--mui-palette-text-primary);
+  background-color: var(--mui-palette-action-selected); border-radius: 16px; border: 0; padding: 0;
+  white-space: nowrap; cursor: unset; outline: 0; vertical-align: middle; box-sizing: border-box;
+}
+.query-status-label > span { overflow: hidden; text-overflow: ellipsis; padding: 0 8px; white-space: nowrap; }
+.query-log-table tbody td .query-status-label[data-color="success"] { color: var(--mui-palette-success-contrastText); background-color: var(--mui-palette-success-main); }
+.query-log-table tbody td .query-status-label[data-color="error"] { color: var(--mui-palette-error-contrastText); background-color: var(--mui-palette-error-main); }
+.query-log-table tbody td .query-status-label[data-outlined="true"] { background-color: transparent; border: 1px solid var(--mui-palette-Chip-defaultBorder); }
+.query-status-label[data-outlined="true"] > span { padding: 0 7px; }
+.query-log-table tbody td .query-status-label[data-color="success"][data-outlined="true"] { color: var(--mui-palette-success-main); border-color: rgba(var(--mui-palette-success-mainChannel) / 0.7); }
+.query-log-table tbody td .query-ping { display: block; width: 100%; min-width: 0; overflow: hidden; white-space: nowrap; text-align: center; }
+.query-ping > span { display: inline-block; white-space: nowrap; }
+.query-log-table tbody td .query-ping[data-overflow="true"] { text-align: left; }
+.query-ping[data-overflow="true"]:hover > span, .MuiButton-root:focus-visible .query-ping[data-overflow="true"] > span { animation: query-ping-scroll var(--ping-duration) ease-in-out infinite alternate; }
+@keyframes query-ping-scroll { 0%, 20% { transform: translateX(0); } 80%, 100% { transform: translateX(calc(-1 * var(--ping-overflow))); } }
+@media (prefers-reduced-motion: reduce), (hover: none) {
+  .query-log-table tbody td .query-ping[data-overflow="true"] { overflow-x: auto; scrollbar-width: none; }
+  .query-ping[data-overflow="true"]::-webkit-scrollbar { display: none; }
+  .query-ping[data-overflow="true"] > span { animation: none !important; }
+}
+
+.table-copy-button {
+  display: inline-flex; align-items: center; justify-content: flex-start; position: relative;
+  box-sizing: border-box; outline: 0; border: 0; border-radius: 12px; padding: 0 4px;
+  margin: -0.25rem; min-width: 0; max-width: 100%; vertical-align: middle;
+  font-family: inherit; font-size: inherit; font-weight: 500; letter-spacing: inherit; line-height: 1.75;
+  font-variant-numeric: inherit; font-feature-settings: inherit;
+  color: inherit; background: transparent; text-align: inherit; text-transform: inherit;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: copy;
+  user-select: none; -webkit-appearance: none;
+}
+.table-copy-button > span { min-width: 0; max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+@media (hover: hover) { .table-copy-button:hover { background-color: rgba(var(--mui-palette-primary-mainChannel) / var(--mui-palette-action-hoverOpacity)); } }
+.table-copy-button:focus-visible { outline: 2px solid var(--mui-palette-primary-main); outline-offset: -2px; }
+
+.query-log-table tbody td .query-client-button { cursor: pointer; }

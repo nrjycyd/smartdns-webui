@@ -1,6 +1,23 @@
-import moment from 'moment-timezone';
+import moment from 'moment-timezone/moment-timezone';
+import coreRules from './time-zone-core.json';
+import zoneNames from './time-zone-names.json';
 
-export { default as moment } from 'moment-timezone';
+export { default as moment } from 'moment-timezone/moment-timezone';
+moment.tz.load(coreRules);
+const knownZones = new Set(zoneNames.map(name => name.toLowerCase().replaceAll('/', '_')));
+let fullRules: Promise<void> | undefined;
+
+export function timeZoneRulesReady(zones: readonly string[]): boolean {
+  return zones.every(zone => moment.tz.zone(zone) !== null);
+}
+
+export function ensureTimeZoneRules(zones: readonly string[]): Promise<void> {
+  if (timeZoneRulesReady(zones)) return Promise.resolve();
+  fullRules ??= import('moment-timezone/data/packed/latest.json').then(data => {
+    moment.tz.load(data.default);
+  }).catch((error_: unknown) => { fullRules = undefined; throw error_; });
+  return fullRules;
+}
 export const DEFAULT_TIME_ZONE = 'Asia/Shanghai';
 export const TIME_SETTINGS_KEY = 'smartdns-webui:time-display:v1';
 export const DATE_TIME_FORMAT = 'YYYY/MM/DD HH:mm:ss';
@@ -9,7 +26,7 @@ export const DEFAULT_TIME_SETTINGS: TimeSettings = { timeZone: DEFAULT_TIME_ZONE
 
 export function validTimeZone(value: unknown): value is string {
   if (typeof value !== 'string' || !value || ['system', 'default'].includes(value)) return false;
-  return moment.tz.zone(value) !== null;
+  return knownZones.has(value.toLowerCase().replaceAll('/', '_'));
 }
 
 export function parseTimeSettings(raw: string | null): TimeSettings {

@@ -1,14 +1,6 @@
 'use client';
 
 import * as React from 'react';
-import { keyframes } from '@emotion/react';
-import Box from '@mui/material/Box';
-
-const scroll = keyframes({
-  '0%, 20%': { transform: 'translateX(0)' },
-  '80%, 100%': { transform: 'translateX(calc(-1 * var(--ping-overflow)))' },
-});
-
 export function ScrollingPing({ value }: { value: string }): React.JSX.Element {
   const container = React.useRef<HTMLSpanElement>(null);
   const text = React.useRef<HTMLSpanElement>(null);
@@ -21,14 +13,7 @@ export function ScrollingPing({ value }: { value: string }): React.JSX.Element {
     if (text.current) observer.observe(text.current);
     return () => { observer.disconnect(); };
   }, [value]);
-  return <Box component="span" ref={container} data-query-ping data-overflow={overflow > 0 || undefined}
+  return <span className="query-ping" ref={container} data-query-ping data-overflow={overflow > 0 || undefined}
     style={{ '--ping-overflow': `${overflow}px`, '--ping-duration': `${Math.max(3, overflow / 20)}s` } as React.CSSProperties}
-    sx={{
-      display: 'block', width: '100%', minWidth: 0, overflow: 'hidden', whiteSpace: 'nowrap', textAlign: overflow > 0 ? 'left' : 'center',
-      '& > span': { display: 'inline-block', whiteSpace: 'nowrap' },
-      ...(overflow > 0 ? {
-        '&:hover > span, .MuiButton-root:focus-visible & > span': { animation: `${scroll} var(--ping-duration) ease-in-out infinite alternate` },
-        '@media (prefers-reduced-motion: reduce), (hover: none)': { '&&': { overflowX: 'auto', scrollbarWidth: 'none' }, '&::-webkit-scrollbar': { display: 'none' }, '& > span': { animation: 'none !important' } },
-      } : {}),
-    }}><span ref={text} data-query-ping-text>{value}</span></Box>;
+    ><span ref={text} data-query-ping-text>{value}</span></span>;
 }

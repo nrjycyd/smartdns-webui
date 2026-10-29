@@ -207,5 +207,9 @@
   "Reset color": "Farbe zurücksetzen",
   "Custom color applies to active icons in both themes. Inactive icons stay gray.": "Die eigene Farbe gilt in beiden Designs für aktive Symbole. Inaktive Symbole bleiben grau.",
   "Enter a color such as #3B7B91.": "Eine sechsstellige Hex-Farbe eingeben, z. B. #3B7B91.",
-  "NAS": "NAS"
+  "NAS": "NAS",
+  "Could not load timezone rules.": "Zeitzonenregeln konnten nicht geladen werden.",
+  "Copy failed": "Kopieren fehlgeschlagen",
+  "Retry": "Erneut versuchen",
+  "Loading": "Wird geladen"
 }

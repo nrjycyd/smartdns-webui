@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { Icon } from '@iconify/react';
-import Box from '@mui/material/Box';
+import { BundledIcon } from '@/components/common/bundled-icon';
 import { useColorScheme } from '@mui/material/styles';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
@@ -106,9 +106,9 @@ export function GroupLabel({ group, groups: previewGroups, scheme }: { group: st
     : iconName;
 
   return (
-    <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.75 }} style={{ color: appearance.color, colorScheme: scheme ?? (colorScheme === 'dark' ? 'dark' : 'light') }}>
-      {icon && <Icon icon={icon} width={18} height={18} style={{ color: appearance.iconColor, flexShrink: 0 }} aria-hidden="true" />}
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: appearance.color, colorScheme: scheme ?? (colorScheme === 'dark' ? 'dark' : 'light') }}>
+      {icon && (typeof icon === 'object' ? <BundledIcon icon={icon} style={{ color: appearance.iconColor }} /> : <Icon icon={icon} width={18} height={18} style={{ color: appearance.iconColor, flexShrink: 0 }} aria-hidden="true" />)}
       <span>{label}</span>
-    </Box>
+    </span>
   );
 }

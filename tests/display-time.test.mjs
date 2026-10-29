@@ -4,11 +4,10 @@ import { createRequire } from 'node:module';
 import test from 'node:test';
 import ts from 'typescript';
 
-const require = createRequire(import.meta.url);
 const source = await readFile(new URL('../src/lib/display-time.ts', import.meta.url), 'utf8');
 const compiled = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, esModuleInterop: true } }).outputText;
 const exports = {};
-new Function('exports', 'require', compiled)(exports, require);
+new Function('exports', 'require', compiled)(exports, createRequire(new URL('../src/lib/display-time.ts', import.meta.url)));
 const { moment, formatDisplayTime, filterTimestamp, statisticsTime, nextStatisticsDay, parseTimeSettings, validTimeZone } = exports;
 
 test('display does not follow browser timezone and never changes the source instant', () => {
@@ -113,3 +112,11 @@ test('Change Timezone cannot override explicit zones through Intl.DateTimeFormat
     assert.equal(filterTimestamp(moment.utc(instant).tz('Asia/Shanghai')), instant);
   } finally { Intl.DateTimeFormat = NativeFormatter; }
 });
+
+ test('uncommon zones remain valid and load their complete IANA rules on demand', async () => {
+ assert.equal(validTimeZone('Pacific/Chatham'), true);
+ assert.equal(exports.timeZoneRulesReady(['Pacific/Chatham']), false);
+ await exports.ensureTimeZoneRules(['Pacific/Chatham']);
+ assert.equal(exports.timeZoneRulesReady(['Pacific/Chatham']), true);
+ assert.equal(formatDisplayTime(Date.parse('2026-01-01T00:00:00Z'), 'Pacific/Chatham'), '2026/01/01 13:45:00');
+ });

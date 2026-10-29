@@ -2,7 +2,6 @@
 
 import * as React from 'react';
 import Tooltip from '@mui/material/Tooltip';
-import Box from '@mui/material/Box';
 import { useTranslation } from 'react-i18next';
 import type { ClientList } from '@/lib/backend/server';
 import { getClientName } from './client-names';
@@ -22,9 +21,9 @@ export function ClientHostname({ client }: { client: ClientList }): React.JSX.El
   const status = t(activity === 'active' ? 'Recently active' : activity === 'inactive' ? 'No recent DNS queries' : 'Activity unknown');
   const lastQuery = Number.isFinite(client.last_query_timestamp) && client.last_query_timestamp > 0 ? formatTime(client.last_query_timestamp) : '—';
   const title = [custom || client.hostname || '—', custom ? t('Server hostname: {{name}}', { name: client.hostname || '—' }) : '', status, `${t('Last Query Time')}: ${lastQuery}`].filter(Boolean).join(' · ');
-  return <Tooltip title={title}><Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.75, minWidth: 0, maxWidth: '100%' }}>
+  return <Tooltip title={title}><span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, minWidth: 0, maxWidth: '100%' }}>
     {ready && <ClientDeviceIcon icon={getClientName(icons, client.mac)} customColor={getClientName(iconColors, client.mac)} activity={activity} />}
-    <Box component="span" sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{custom || client.hostname || '—'}</Box>
-    {activity === 'unknown' && <Box component="span" aria-label={status} sx={{ color: 'text.secondary', fontSize: 12 }}>?</Box>}
-  </Box></Tooltip>;
+    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{custom || client.hostname || '—'}</span>
+    {activity === 'unknown' && <span aria-label={status} style={{ color: 'var(--mui-palette-text-secondary)', fontSize: 12, flexShrink: 0 }}>?</span>}
+  </span></Tooltip>;
 }

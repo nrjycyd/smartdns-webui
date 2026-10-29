@@ -9,15 +9,18 @@ import {
   useMaterialReactTable,
   type MRT_ColumnFilterFnsState as MRTColumnFilterFnsState,
   type MRT_ColumnDef as MRTColumnDef,
+  type MRT_TableOptions as MRTTableOptions,
   type MRT_ColumnFiltersState as MRTColumnFiltersState,
   type MRT_PaginationState as MRTPaginationState,
+  type MRT_ColumnPinningState as MRTColumnPinningState,
+  type MRT_ColumnOrderState as MRTColumnOrderState,
   type MRT_SortingState as MRTSortingState,
   MRT_ActionMenuItem as MRTActionMenuItem,
   type MRT_Row as MRTRow,
   type MRT_Cell as MRTCell,
   type MRT_TableInstance as MRTTableInstance,
 } from 'material-react-table';
-import { Box, Card, IconButton, Tooltip, Chip } from '@mui/material';
+import { Box, Card, IconButton, Tooltip, LinearProgress } from '@mui/material';
 import { createTheme, useColorScheme } from '@mui/material/styles';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import WidthNormalOutlined from '@mui/icons-material/WidthNormalOutlined';
@@ -41,12 +44,15 @@ import { type SnackbarOrigin, SnackbarProvider, useSnackbar } from 'notistack';
 import { getDomainTypeName, getDomainTypeId } from './domain-type';
 import { QueryClientIdentityCell } from './client-identity-cell';
 import { ScrollingPing } from './scrolling-ping';
+import { getClientActivity } from '@/components/dashboard/clients/client-activity';
 import { ClientActivityProvider } from '@/components/dashboard/clients/client-activity-provider';
-import { useClientIdentitySizingReady, useRefreshClientIdentities } from '@/components/dashboard/clients/client-identity-provider';
+import { ClientIdentityBatchProvider, useClientIdentitySizingReady, useRefreshClientIdentities, useClientIdentityQueryClient, useClientIdentityPageVersion } from '@/components/dashboard/clients/client-identity-provider';
 import { useClientNames } from '@/components/dashboard/clients/client-names-provider';
+import { getClientDeviceIdentity, normalizeClientIp } from '@/components/dashboard/clients/client-identity';
 import { formatQueryClientAddress } from './client-address';
 import { GroupLabel, useGroupAppearance } from './group-label';
 import { useTableDensityPreview } from '@/components/dashboard/layout/table-density-provider';
+import { withCopyCells } from '@/components/dashboard/layout/table-copy-cell';
 import { useAdaptiveColumns } from '@/components/dashboard/layout/use-adaptive-columns';
 import { queryLogAlignment, queryLogNumeric, queryLogPadding } from '@/components/dashboard/layout/query-log-layout';
 
@@ -58,7 +64,16 @@ interface UserApiResponse {
   };
 };
 
+function StatusLabel({ label, color = 'default', outlined = false }: { label: string; color?: 'default' | 'success' | 'error'; outlined?: boolean }): React.JSX.Element {
+  return <span className="query-status-label" data-color={color} data-outlined={outlined || undefined}><span>{label}</span></span>;
+}
+
 const FILTER_COLUMNS = new Set(['id', 'domain', 'domain_type', 'client', 'domain_group', 'is_blocked', 'reply_code']);
+
+function QueryLogMaterialTable({ options }: { options: MRTTableOptions<DomainList> }): React.JSX.Element {
+  const table = useMaterialReactTable(options);
+  return <MaterialReactTable table={table} />;
+}
 
 function TableQueryLogs(): React.JSX.Element {
   const { timeZone, formatTime } = useTimeDisplay();
@@ -68,8 +83,16 @@ function TableQueryLogs(): React.JSX.Element {
   const queryClient = useQueryClient();
   const { refresh: refreshGroupAppearance, registerGroups } = useGroupAppearance();
   const refreshClientIdentities = useRefreshClientIdentities();
-  const { names, icons } = useClientNames();
+  const { names, icons, iconColors } = useClientNames();
   const [fitRevision, setFitRevision] = useState(0);
+  const [columnPinning, setColumnPinning] = useState<MRTColumnPinningState>(() => ({ right: window.innerWidth >= 1200 ? ['mrt-row-actions'] : [] }));
+  const [columnOrder, setColumnOrder] = useState<MRTColumnOrderState>([]);
+  const [actionCell, setActionCell] = useState<MRTCell<DomainList> | null>(null);
+
+
+  const [columnFilters, setColumnFilters] = useState<MRTColumnFiltersState>(
+    [],
+  );
 
   const columns = useMemo<MRTColumnDef<DomainList>[]>(
     () => [
@@ -101,36 +124,9 @@ function TableQueryLogs(): React.JSX.Element {
         Cell: ({ cell }) => {
           const type = cell.getValue<number>();
           const name = getDomainTypeName(type);
-          const tone = type === 1 ? ['#1F7AE0', '#80B6F5'] : type === 28 ? ['#16A34A', '#6DD995'] : type === 65 ? ['#D9488F', '#F29BC5'] : ['#8A929B', '#B9C3CE'];
           return (
             <Tooltip title={`${name} · ${type}`} arrow placement="top">
-              <Box component="span" sx={(theme) => ({
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  verticalAlign: 'middle',
-                  boxSizing: 'border-box',
-                  '&&': { minWidth: '22px' },
-                  height: '18px',
-                  maxWidth: '100%',
-                  textAlign: 'center',
-                  fontFamily: '"Roboto Mono", ui-monospace, SFMono-Regular, Consolas, monospace',
-                  fontSize: '11px',
-                  fontWeight: 500,
-                  lineHeight: 1,
-                  letterSpacing: 'normal',
-                  padding: '0 3px',
-                  border: '1px solid currentColor',
-                  borderRadius: '999px',
-                  backgroundColor: 'transparent',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap',
-                  color: tone[0],
-                  ...theme.applyStyles('dark', {
-                    color: tone[1],
-                  }),
-              })}>{name}</Box>
+              <span className="query-type-label" data-dns-type={type}>{name}</span>
             </Tooltip>
           );
         },
@@ -207,8 +203,8 @@ function TableQueryLogs(): React.JSX.Element {
         },
         Cell: ({ cell }) =>
           cell.getValue<boolean>()
-            ? <Chip label={t('Blocked')} color="error" size="small" />
-            : <Chip label={t('Allowed')} color="success" size="small" variant="outlined" />,
+            ? <StatusLabel label={t('Blocked')} color="error" />
+            : <StatusLabel label={t('Allowed')} color="success" outlined />,
         muiFilterTextFieldProps: {
           sx: {
             '& .MuiInputAdornment-positionEnd': {
@@ -228,12 +224,12 @@ function TableQueryLogs(): React.JSX.Element {
         Cell: ({ cell }) => {
           const isCached = cell.getValue<DomainList['is_cached']>();
           if (isCached === true) {
-            return <Chip label={t('Yes')} color="success" size="small" />;
+            return <StatusLabel label={t('Yes')} color="success" />;
           }
           if (isCached === false) {
-            return <Chip label={t('No')} size="small" variant="outlined" />;
+            return <StatusLabel label={t('No')} outlined />;
           }
-          return <Chip label={t('Unknown')} size="small" variant="outlined" />;
+          return <StatusLabel label={t('Unknown')} outlined />;
         },
       },
       {
@@ -260,9 +256,6 @@ function TableQueryLogs(): React.JSX.Element {
   );
 
   const { checkSessionError } = useUser();
-  const [columnFilters, setColumnFilters] = useState<MRTColumnFiltersState>(
-    [],
-  );
   const [columnFilterFns, setColumnFilterFns] =
     useState<MRTColumnFilterFnsState>(
       () => Object.fromEntries(
@@ -285,11 +278,6 @@ function TableQueryLogs(): React.JSX.Element {
 
   const [tableLocales, setTableLocales] = useState(MRT_Localization_EN);
   const { enqueueSnackbar } = useSnackbar();
-  let isActionAlignRight = false;
-
-  if (window.innerWidth >= 1200) {
-    isActionAlignRight = true;
-  }
 
   React.useEffect(() => {
     const searchParams = new URLSearchParams(search);
@@ -581,37 +569,43 @@ function TableQueryLogs(): React.JSX.Element {
   }), [t]);
   const visibleIps = React.useMemo(() => data.map((row) => row.client), [data]);
   const identitiesReady = useClientIdentitySizingReady(visibleIps);
+  const identityClient = useClientIdentityQueryClient();
+  const identityVersion = useClientIdentityPageVersion(visibleIps);
+  const clientSamples = React.useMemo(() => identityVersion === 0 ? [] : data.map(row => {
+    const cached = identityClient.getQueryState<import('@/lib/backend/server').ClientList | null>(['client-name-lookup', normalizeClientIp(row.client)]);
+    const identity = getClientDeviceIdentity(row.client, names, icons, cached?.data, iconColors);
+    return { text: identity.name || formatQueryClientAddress(row.client), icon: identity.icon !== '', unknown: getClientActivity(cached?.data?.last_query_timestamp ?? 0, identityVersion, cached?.status === 'success' && Boolean(cached.data), cached?.dataUpdatedAt ?? 0) === 'unknown' };
+  }), [data, identityClient, identityVersion, names, icons, iconColors]);
   const sizingReady = identitiesReady && !isRefetching && !isLoading && !isPlaceholderData;
   const sizingScope = React.useMemo(() => JSON.stringify([pagination, columnFilters, columnFilterFns, globalFilter, sorting, fitRevision, i18n.language, names, icons]), [pagination, columnFilters, columnFilterFns, globalFilter, sorting, fitRevision, i18n.language, names, icons]);
-  const widths = useAdaptiveColumns({ layout: 'query-log', columns, data, visibility: columnVisibility, density, manualSizing: columnSizing, text: widthText, referenceText: widthReferences, actions: true, optionalColumn: 'reply_code', resetKey: sizingScope, sizingReady });
+  const { containerRef, ...widths } = useAdaptiveColumns({ layout: 'query-log', columns, data, visibility: columnVisibility, density, manualSizing: columnSizing, text: widthText, referenceText: widthReferences, actions: true, optionalColumn: 'reply_code', resetKey: sizingScope, sizingReady, clientSamples });
+  const hasPinnedData = [...(columnPinning.left ?? []), ...(columnPinning.right ?? [])].some(id => id !== 'mrt-row-actions');
   const horizontalPadding = `${queryLogPadding(density) / 16}rem`;
 
-  const table = useMaterialReactTable({
+  // Row identity changes for data and display settings, never for width measurement alone.
+  const renderRevision = JSON.stringify([density, i18n.language, timeZone, columnFilters, widths.columnVisibility, columnOrder, columnPinning, actionCell?.id]);
+  const copyColumns = React.useMemo(() => withCopyCells(columns, { ...tableLocales, copyFailed: t('Copy failed') }), [columns, tableLocales, t]);
+  const rowModel = React.useMemo(() => ({ revision: [renderRevision, copyColumns], data: data.map(row => ({ ...row })) }), [data, renderRevision, copyColumns]);
+  const options: MRTTableOptions<DomainList> = {
     onDensityChange: previewDensity,
-    columns,
-    data,
+    columns: copyColumns,
+    data: rowModel.data,
     localization: { ...tableLocales, toggleDensity: t('Preview table spacing (this page only)') },
     enableColumnResizing: !widths.automatic,
-    layoutMode: 'grid-no-grow',
-    muiTableContainerProps: { ref: widths.containerRef },
+    layoutMode: 'semantic',
+    memoMode: widths.automatic && !hasPinnedData ? 'rows' : undefined,
+    onColumnOrderChange: setColumnOrder,
+    onColumnPinningChange: setColumnPinning,
+    onActionCellChange: setActionCell,
+
     muiTableBodyCellProps: ({ row, cell }) => ({
       'data-query-column': cell.column.id,
       'data-query-align': queryLogAlignment(cell.column.id),
       align: queryLogAlignment(cell.column.id),
-      sx: {
-        ...widths.cellSx,
-        px: horizontalPadding,
-        textAlign: queryLogAlignment(cell.column.id),
-        justifyContent: queryLogAlignment(cell.column.id) === 'right' ? 'flex-end' : queryLogAlignment(cell.column.id) === 'center' ? 'center' : 'flex-start',
-        fontVariantNumeric: queryLogNumeric(cell.column.id) ? 'tabular-nums' : undefined,
-        '& .MuiButton-root': {
-          width: '100%', paddingLeft: 0, paddingRight: 0, marginLeft: 0, marginRight: 0,
-          justifyContent: queryLogAlignment(cell.column.id) === 'right' ? 'flex-end' : queryLogAlignment(cell.column.id) === 'center' ? 'center' : 'flex-start',
-        },
-      },
+      'data-query-numeric': queryLogNumeric(cell.column.id) || undefined,
       title: widthText(row.original, cell.column.id),
     }),
-    muiCopyButtonProps: { sx: { ...widths.copySx, padding: 0, mx: 0 } },
+    muiTableProps: ({ table }) => ({ className: 'query-log-table', style: { '--query-cell-padding': horizontalPadding, width: table.getTotalSize(), tableLayout: 'fixed' } as React.CSSProperties }),
     muiTableHeadCellProps: ({ column }) => ({ 'data-width-column': column.id, sx: {} }),
     enableSorting: false,
     enableColumnOrdering: true,
@@ -663,6 +657,7 @@ function TableQueryLogs(): React.JSX.Element {
           ? updaterOrValue(pagination)
           : updaterOrValue;
       if (newPagination.pageSize !== pagination.pageSize) pageCursor.current = null;
+      setActionCell(null);
       setPagination(newPagination);
       saveTablePreference(PAGINATION_KEY, newPagination);
     },
@@ -733,15 +728,15 @@ function TableQueryLogs(): React.JSX.Element {
     initialState: {
       columnVisibility,
       columnSizing,
-      columnPinning: {
-        right: isActionAlignRight ? ['mrt-row-actions'] : [],
-      },
       pagination: {
         pageIndex: 0,
         pageSize: pagination.pageSize,
       },
     },
     state: {
+      columnPinning,
+      columnOrder,
+      actionCell,
       density,
       columnFilters,
       columnFilterFns,
@@ -758,9 +753,9 @@ function TableQueryLogs(): React.JSX.Element {
     mrtTheme: (_theme) => ({
       baseBackgroundColor,
     }),
-  });
+  };
 
-  return (<ClientActivityProvider available><MaterialReactTable table={table} /></ClientActivityProvider>);
+  return (<ClientIdentityBatchProvider ips={visibleIps}><ClientActivityProvider available><div ref={containerRef} style={{ minWidth: 0 }}>{!shouldFetchData || isLoading ? <Box sx={{ minHeight: 160 }}><LinearProgress aria-label={t('Loading')} /></Box> : <QueryLogMaterialTable options={options} />}</div></ClientActivityProvider></ClientIdentityBatchProvider>);
 };
 
 const queryClient = new QueryClient({
