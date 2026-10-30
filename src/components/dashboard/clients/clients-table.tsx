@@ -22,7 +22,8 @@ import {
   type MRT_TableInstance as MRTTableInstance,
 } from 'material-react-table';
 import { Card, IconButton } from '@mui/material';
-import { createTheme, useColorScheme } from '@mui/material/styles';
+import { useColorScheme } from '@mui/material/styles';
+import { tableBackground } from '../layout/table-background';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import { moment, filterTimestamp } from '@/lib/display-time';
 import { useTimeDisplay } from '../layout/time-display-provider';
@@ -158,8 +159,6 @@ function TableClients(): React.JSX.Element {
   const [sorting, setSorting] = useState<MRTSortingState>([]);
   const pageCursor = React.useRef<PageCursor | null>(null);
   const [pagination, setPagination] = useState<MRTPaginationState>(() => ({ ...readTablePagination(PAGINATION_KEY), pageIndex: 0 }));
-  const [totalRowCount, setTotalRowCount] = useState(0);
-  const totalCountFromParams = React.useRef(false);
   const [tableLocales, setTableLocales] = useState(MRT_Localization_EN);
   const { enqueueSnackbar } = useSnackbar();
 
@@ -217,11 +216,6 @@ function TableClients(): React.JSX.Element {
         'page_size': pagination.pageSize,
       };
 
-      if (totalCountFromParams.current) {
-        totalCountFromParams.current = false;
-        queryParam['total_count'] = totalRowCount;
-      }
-
       Object.assign(queryParam, getPageCursorParams(pageCursor.current, currentPageNumber, pagination.pageSize, scope));
 
       for (const filter of columnFilters) {
@@ -247,7 +241,7 @@ function TableClients(): React.JSX.Element {
         queryParam[filterId] = filter.value as string;
       }
 
-      const data = await smartdnsServer.GetClients(queryParam);
+      const data = await smartdnsServer.GetClients(queryParam, signal);
       if (data.error) {
         await checkSessionError?.(data.error);
         setErrorMsg(smartdnsServer.getErrorMessage(data.error));
@@ -269,7 +263,6 @@ function TableClients(): React.JSX.Element {
           scope,
           totalCount,
         } : null;
-        setTotalRowCount(totalCount);
       }
       const resp: UserApiResponse = {
         data: data.data.client_list,
@@ -314,7 +307,6 @@ function TableClients(): React.JSX.Element {
 
     enqueueSnackbar(t('Delete client {{id}} {{client_ip}} successfully.', { id, client_ip: clientIP }), { variant: 'success' });
     pageCursor.current = null;
-    totalCountFromParams.current = false;
     refreshClientIdentities();
     await queryClient.invalidateQueries({ queryKey: ['table-data'] });
   }, [t, enqueueSnackbar, queryClient, refreshClientIdentities]);
@@ -352,11 +344,7 @@ function TableClients(): React.JSX.Element {
   );
 
   const { colorScheme } = useColorScheme();
-  const tableTheme = React.useMemo(
-    () => createTheme({ palette: { mode: colorScheme === 'dark' ? 'dark' : 'light' } }),
-    [colorScheme],
-  );
-  const baseBackgroundColor = tableTheme.palette.background.paper;
+  const baseBackgroundColor = tableBackground(colorScheme);
 
   const widthText = React.useCallback((row: ClientList, id: string) => {
     if (id === 'hostname') return getClientName(clientNames, row.mac) || row.hostname || '—';
@@ -415,13 +403,11 @@ function TableClients(): React.JSX.Element {
       : undefined,
     onColumnFilterFnsChange: (updater) => {
       pageCursor.current = null;
-      totalCountFromParams.current = false;
       setColumnFilterFns(updater);
       setPagination((previous) => ({ ...previous, pageIndex: 0 }));
     },
     onColumnFiltersChange: (filters) => {
       pageCursor.current = null;
-      totalCountFromParams.current = false;
       setColumnFilters(filters);
       setPagination((previous) => ({ ...previous, pageIndex: 0 }));
     },

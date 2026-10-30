@@ -9,6 +9,7 @@ import { MRT_CopyButton, type MRT_Cell, type MRT_TableInstance, type MRT_RowData
 import { singleLineCopySx } from '@/components/dashboard/layout/column-widths';
 import type { CSSObject } from '@emotion/react';
 import type { Theme } from '@mui/material/styles';
+import { useTableTouchOnly } from './table-input-mode';
 
 interface CopyHints {
   enter: (target: HTMLButtonElement, id: string, title: string, delay?: number) => void;
@@ -77,9 +78,10 @@ export const touchTooltipStyles = (theme: Theme) => ({
 
 export function SharedCopyButton<TData extends MRT_RowData>({ cell, table, children, className }: { cell: MRT_Cell<TData>; table: MRT_TableInstance<TData>; children: React.ReactNode; className: string }): React.JSX.Element {
   const hints = React.useContext(CopyHintContext);
+  const touchOnly = useTableTouchOnly();
   const label = table.options.localization.clickToCopy;
   // Keep MUI's original long-press behavior on touch-only devices.
-  if (window.matchMedia('(hover: none)').matches) return <MRT_CopyButton cell={cell} table={table}>{children}</MRT_CopyButton>;
+  if (touchOnly ?? window.matchMedia('(hover: none)').matches) return <MRT_CopyButton cell={cell} table={table}>{children}</MRT_CopyButton>;
   return <ButtonBase type="button" focusRipple className={`MuiButton-root MuiButton-text MuiButton-textPrimary MuiButton-sizeSmall MuiButton-textSizeSmall MuiButton-colorPrimary ${className}`} aria-label={label} data-copy-label={label}
     onMouseEnter={event => hints?.enter(event.currentTarget, cell.id, label)} onMouseLeave={() => hints?.leave()}
     onFocus={event => { if (event.currentTarget.matches(':focus-visible')) hints?.enter(event.currentTarget, cell.id, label); }} onBlur={() => hints?.leave()}

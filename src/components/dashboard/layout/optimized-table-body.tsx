@@ -9,6 +9,7 @@ import { SharedTableHints } from './shared-table-tooltip';
 import { SharedCopyButton, SharedCopyHints, copyButtonStyles } from './shared-copy-button';
 
 import { queryLogAlignment } from '@/components/dashboard/layout/query-log-layout';
+import { TableInputMode } from './table-input-mode';
 
 // Presentation follows MRT 3's MIT-licensed row/cell styles. Compile each column's
 // identical styles once, rather than resolving MUI sx separately for every cell.
@@ -64,7 +65,7 @@ export function OptimizedTableBody<TData extends MRT_RowData>({ table, layout = 
     const own = cell.column.columnDef.muiTableBodyCellProps;
     return { ...(typeof all === 'function' ? all(args) : all), ...(typeof own === 'function' ? own(args) : own) };
   };
-  return <SharedTableHints><SharedCopyHints><ClassNames>{({ css }) => {
+  return <TableInputMode><SharedTableHints><SharedCopyHints><ClassNames>{({ css }) => {
     const rowClass = css({ color: 'inherit', verticalAlign: 'middle', outline: 0, backgroundColor: `${background} !important`, boxSizing: 'border-box', display: 'flex', opacity: 1, position: 'relative', transition: 'all 150ms ease-in-out', width: '100%', zIndex: 0, '&:hover td:after': { backgroundColor: hover, ...overlay } });
     const classes = columns.map((column, index) => {
       const cell = rows[0]?.getVisibleCells()[index];
@@ -94,5 +95,5 @@ export function OptimizedTableBody<TData extends MRT_RowData>({ table, layout = 
     });
     const copyClass = css(copyButtonStyles(theme, layout === 'query-log') as CSSObject);
     return <>{rows.map((row, rowIndex) => <OptimizedTableRow key={row.id} row={row} rowIndex={rowIndex} table={table} rowClass={rowClass} copyClass={copyClass} cellClasses={classes.join(' ')} actionId={state.actionCell?.id} outline={`1px solid ${theme.palette.grey[500]}`} loading={Boolean(state.isLoading || state.showSkeletons)} />)}</>;
-  }}</ClassNames></SharedCopyHints></SharedTableHints>;
+  }}</ClassNames></SharedCopyHints></SharedTableHints></TableInputMode>;
 }

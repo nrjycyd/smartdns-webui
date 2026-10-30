@@ -7,6 +7,7 @@ import { smartdnsServer } from '@/lib/backend/server';
 import type { DailyQueryCountResponse } from '@/lib/backend/server';
 import { useUser } from '@/hooks/use-user';
 import { CardLoading } from './card-loading';
+import { startStatisticsPolling } from './statistics-polling';
 import { type ActiveElement, Chart, type ChartEvent, registerables } from 'chart.js';
 import { useTranslation } from 'react-i18next';
 import { FindInPageOutlined } from '@mui/icons-material';
@@ -193,6 +194,8 @@ function DailyQueryCountTable({ queryCount, setTitle, setTitleAction }: DailyQue
   </Box>);
 }
 
+const MemoizedDailyQueryCountTable = React.memo(DailyQueryCountTable);
+
 export function DailyQueryCountCard(sx: SxProps): React.JSX.Element {
   const { checkSessionError } = useUser();
   const [queryCount, setQueryCount] = React.useState<DailyQueryCountResponse | null>(null);
@@ -201,38 +204,25 @@ export function DailyQueryCountCard(sx: SxProps): React.JSX.Element {
   const { t } = useTranslation();
   const [title, setTitle] = React.useState<string>("");
   const [titleAction, setTitleAction] = React.useState<React.ReactNode | null>(null);
-  const isMounted = React.useRef(true);
-
   React.useEffect(() => {
-    const fetchData = async (): Promise<void> => {
-      if (!isMounted.current) {
-        return;
-      }
-
-      const data = await smartdnsServer.GetDailyQueryCount();
+    return startStatisticsPolling(async (signal) => {
+      const data = await smartdnsServer.GetDailyQueryCount(signal);
+      if (signal.aborted) return true;
       if (data.error) {
         await checkSessionError?.(data.error);
-        setErrorMsg(smartdnsServer.getErrorMessage(data.error));
-        setTimeout(fetchData, 3000);
-        return;
+        if (!signal.aborted) setErrorMsg(smartdnsServer.getErrorMessage(data.error));
+        return false;
       }
 
       if (data.data === null || data.data === undefined) {
-        return;
+        return true;
       }
 
       setQueryCount(data.data);
       setLoading(false);
       setErrorMsg(null);
-    };
-
-    void fetchData();
-    const fetchTimer = setInterval(fetchData, 60000);
-
-    return (): void => {
-      clearInterval(fetchTimer);
-      isMounted.current = false;
-    };
+      return true;
+    });
   }, [checkSessionError]);
 
   return (<Box>
@@ -240,7 +230,7 @@ export function DailyQueryCountCard(sx: SxProps): React.JSX.Element {
       titleAction={titleAction}
       isLoading={loading}
       errorMsg={errorMsg}>
-      {queryCount ? <DailyQueryCountTable queryCount={queryCount} sx={sx} setTitle={setTitle} setTitleAction={setTitleAction} /> : null}
+      {queryCount ? <MemoizedDailyQueryCountTable queryCount={queryCount} sx={sx} setTitle={setTitle} setTitleAction={setTitleAction} /> : null}
     </CardLoading>
   </Box>);
 }

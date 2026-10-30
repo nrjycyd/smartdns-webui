@@ -43,8 +43,11 @@ class DataServer {
     }
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any  -- Expected
-    async fetch<T>(path: string, method: string, headers: HeadersInit, bodyData: any, noSignOut = false): Promise<FetchResponse<T>> {
+    async fetch<T>(path: string, method: string, headers: HeadersInit, bodyData: any, noSignOut = false, signal?: AbortSignal): Promise<FetchResponse<T>> {
+        if (signal?.aborted) throw signal.reason ?? new DOMException('Aborted', 'AbortError');
         const controller = new AbortController();
+        const abort = () => { controller.abort(signal?.reason); };
+        signal?.addEventListener('abort', abort, { once: true });
         const timeout = setTimeout(() => { controller.abort(); }, 15_000);
         try {
             let response;
@@ -85,6 +88,7 @@ class DataServer {
                     // Authentication handling must not depend on a valid response body.
                 }
 
+                if (signal?.aborted) throw signal.reason ?? new DOMException('Aborted', 'AbortError');
                 if (response.status === 401 && !noSignOut) {
                     await this.signOut();
                     return { error: new AuthorError(this.getErrorMessage(error)) };
@@ -98,9 +102,13 @@ class DataServer {
 
             return { data: await response.json() as T };
         } catch (error) {
+            // Caller cancellation must remain a rejected query, not an API error
+            // that a view could mistake for a session or connection failure.
+            if (signal?.aborted) throw signal.reason ?? error;
             return { error: error as ServerError };
         } finally {
             clearTimeout(timeout);
+            signal?.removeEventListener('abort', abort);
         }
     }
 }
@@ -323,8 +331,8 @@ class SmartDNSAPI {
         return this.server.fetch<LoginToken>('/api/auth/refresh', 'POST', {}, {});
     }
 
-    async GetVersion(): Promise<{ error?: ServerError, data?: ServerVersion | null }> {
-        const data = await this.server.fetch<ServerVersion>('/api/server/version', 'GET', {}, {});
+    async GetVersion(signal?: AbortSignal): Promise<{ error?: ServerError, data?: ServerVersion | null }> {
+        const data = await this.server.fetch<ServerVersion>('/api/server/version', 'GET', {}, {}, false, signal);
         return data;
     }
 
@@ -349,7 +357,7 @@ class SmartDNSAPI {
         return this.server.fetch<null>('/api/cache/flush', 'PUT', {}, {});
     }
 
-    async GetClients(param: QueryClientsParams): Promise<{ error?: ServerError, data?: ClientListResponse | null }> {
+    async GetClients(param: QueryClientsParams, signal?: AbortSignal): Promise<{ error?: ServerError, data?: ClientListResponse | null }> {
         const searchParams = new URLSearchParams();
 
         if (param.id) {
@@ -400,11 +408,11 @@ class SmartDNSAPI {
             searchParams.append('total_count', param.total_count.toString());
         }
 
-        const ret = await this.server.fetch<ClientListResponse>(`/api/client?${searchParams.toString()}`, 'GET', {}, {});
+        const ret = await this.server.fetch<ClientListResponse>(`/api/client?${searchParams.toString()}`, 'GET', {}, {}, false, signal);
         return ret;
     }
 
-    async GetQueryLogs(param: QueryLogsParams): Promise<{ error?: ServerError, data?: QueryLogs | null }> {
+    async GetQueryLogs(param: QueryLogsParams, signal?: AbortSignal): Promise<{ error?: ServerError, data?: QueryLogs | null }> {
 
         const searchParams = new URLSearchParams();
 
@@ -476,7 +484,7 @@ class SmartDNSAPI {
             searchParams.append('total_count', param.total_count.toString());
         }
 
-        const ret = await this.server.fetch<QueryLogs>(`/api/domain?${searchParams.toString()}`, 'GET', {}, {});
+        const ret = await this.server.fetch<QueryLogs>(`/api/domain?${searchParams.toString()}`, 'GET', {}, {}, false, signal);
         return ret;
     }
 
@@ -558,8 +566,8 @@ class SmartDNSAPI {
         return { data: ret.data?.domains };
     }
 
-    async GetHourlyQueryCount(): Promise<{ error?: ServerError, data?: HourlyQueryCountResponse | null }> {
-        const ret = await this.server.fetch<HourlyQueryCountResponse>('/api/stats/hourly-query-count', 'GET', {}, {});
+    async GetHourlyQueryCount(signal?: AbortSignal): Promise<{ error?: ServerError, data?: HourlyQueryCountResponse | null }> {
+        const ret = await this.server.fetch<HourlyQueryCountResponse>('/api/stats/hourly-query-count', 'GET', {}, {}, false, signal);
         if (ret.error) {
             return { error: ret.error };
         }
@@ -571,8 +579,8 @@ class SmartDNSAPI {
         return { data: ret.data };
     }
 
-    async GetDailyQueryCount(): Promise<{ error?: ServerError, data?: DailyQueryCountResponse | null }> {
-        const ret = await this.server.fetch<DailyQueryCountResponse>('/api/stats/daily-query-count', 'GET', {}, {});
+    async GetDailyQueryCount(signal?: AbortSignal): Promise<{ error?: ServerError, data?: DailyQueryCountResponse | null }> {
+        const ret = await this.server.fetch<DailyQueryCountResponse>('/api/stats/daily-query-count', 'GET', {}, {}, false, signal);
         if (ret.error) {
             return { error: ret.error };
         }

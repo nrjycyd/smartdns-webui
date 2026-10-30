@@ -18,8 +18,9 @@ function Version(): React.JSX.Element {
   const { t } = useTranslation();
 
   React.useEffect(() => {
-    smartdnsServer.GetVersion().then((version) => {
-      if (version.error) {
+    const controller = new AbortController();
+    smartdnsServer.GetVersion(controller.signal).then((version) => {
+      if (controller.signal.aborted || version.error) {
         return;
       }
 
@@ -32,7 +33,8 @@ function Version(): React.JSX.Element {
       // NOOP
     }
     );
-  }, [uiVersion, serverVersion]);
+    return () => { controller.abort(); };
+  }, []);
 
 
   return (

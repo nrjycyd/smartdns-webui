@@ -41,8 +41,8 @@ export function ClientIdentityBatchProvider({ ips, children }: { ips: readonly s
     refetchOnWindowFocus: false,
     refetchInterval: CLIENT_REFRESH_INTERVAL,
     refetchIntervalInBackground: false,
-    queryFn: async () => {
-      const result = await smartdnsServer.GetClients({ page_num: 1, page_size: CLIENT_SNAPSHOT_LIMIT });
+    queryFn: async ({ signal }) => {
+      const result = await smartdnsServer.GetClients({ page_num: 1, page_size: CLIENT_SNAPSHOT_LIMIT }, signal);
       if (result.error || !result.data) throw new Error('Client snapshot failed');
       return createClientSnapshot(result.data);
     },
@@ -150,8 +150,8 @@ export function useClientIdentity(ip: string, withDeviceIcon = false) {
     refetchOnWindowFocus: false,
     refetchInterval: withDeviceIcon ? CLIENT_REFRESH_INTERVAL : false,
     refetchIntervalInBackground: false,
-    queryFn: async () => {
-      const result = await smartdnsServer.GetClients({ client_ip: ip, page_num: 1, page_size: 1 });
+    queryFn: async ({ signal }) => {
+      const result = await smartdnsServer.GetClients({ client_ip: ip, page_num: 1, page_size: 1 }, signal);
       if (result.error || !result.data) throw new Error('Client lookup failed');
       return result.data.client_list.find((entry) => normalizeClientIp(entry.client_ip) === key) ?? null;
     },

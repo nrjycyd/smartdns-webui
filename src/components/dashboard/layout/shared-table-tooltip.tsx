@@ -4,6 +4,7 @@ import * as React from 'react';
 import { createPortal } from 'react-dom';
 import Tooltip, { type TooltipProps } from '@mui/material/Tooltip';
 import { touchTooltipStyles } from './shared-copy-button';
+import { useTableTouchOnly } from './table-input-mode';
 
 interface Hint { id: string; anchor: HTMLElement; title: React.ReactNode; arrow?: boolean; placement: TooltipProps['placement']; touch?: boolean }
 interface Events { enter: (hint: Hint, delay: number) => void; leave: (delay?: number) => void; retain: () => void; update: (id: string, title: React.ReactNode) => void }
@@ -29,9 +30,10 @@ export function SharedTableHints({ children }: { children: React.ReactNode }): R
 
 export function SharedTableTooltip({ children, title, arrow, placement = 'bottom', ...props }: TooltipProps): React.JSX.Element {
   const events = React.useContext(HintContext);
+  const touchOnly = useTableTouchOnly();
   const hintId = React.useId();
   React.useEffect(() => { events?.update(hintId, title); }, [events, hintId, title]);
-  if (!events || window.matchMedia('(hover: none)').matches) return <Tooltip title={title} arrow={arrow} placement={placement} {...props}>{children}</Tooltip>;
+  if (!events || (touchOnly ?? window.matchMedia('(hover: none)').matches)) return <Tooltip title={title} arrow={arrow} placement={placement} {...props}>{children}</Tooltip>;
   const element = children as React.ReactElement<React.HTMLAttributes<HTMLElement>>;
   const enter = (target: HTMLElement) => { events.enter({ id: hintId, anchor: target, title, arrow, placement }, props.enterDelay ?? 100); };
   return React.cloneElement(element, {

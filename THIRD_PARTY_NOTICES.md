@@ -2,6 +2,10 @@
 
 The optimized table presentation in src/components/dashboard/layout adapts row, cell, button and tooltip styling from Material React Table and MUI. Their license notices follow.
 
+## React LogViewer
+
+The log view uses @melloware/react-logviewer 6.6.0, licensed under the Mozilla Public License 2.0. The integration adapter is in src/components/dashboard/log/bounded-log.tsx. The full license is included in public/licenses/react-logviewer-MPL-2.0.txt (exported as /licenses/react-logviewer-MPL-2.0.txt); upstream source is available at https://github.com/melloware/react-logviewer.
+
 ## Material React Table
 
 MIT License

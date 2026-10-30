@@ -23,6 +23,9 @@ interface GroupAppearanceContextValue {
 }
 
 const GroupAppearanceContext = React.createContext<GroupAppearanceContextValue>({ groups: EMPTY_GROUP_APPEARANCES, defaults: EMPTY_GROUP_APPEARANCES, overrides: EMPTY_GROUP_APPEARANCES, knownGroups: [], ready: false, storageError: false, save: () => false, registerGroups: () => {}, refresh: () => {} });
+type GroupActions = Pick<GroupAppearanceContextValue, 'registerGroups' | 'refresh'>;
+const GroupActionsContext = React.createContext<GroupActions>({ registerGroups: () => {}, refresh: () => {} });
+const GroupVisualContext = React.createContext(EMPTY_GROUP_APPEARANCES);
 
 export function GroupAppearanceProvider({ children }: { children: React.ReactNode }): React.JSX.Element {
   const [overrides, setOverrides] = React.useState<GroupAppearances>(EMPTY_GROUP_APPEARANCES);
@@ -83,18 +86,24 @@ export function GroupAppearanceProvider({ children }: { children: React.ReactNod
     });
   }, []);
   const groups = React.useMemo(() => mergeGroupAppearances(defaults, overrides), [defaults, overrides]);
-  const value = React.useMemo(() => ({ groups, defaults, overrides, knownGroups, ready: hydrated && !isPending, storageError, save, registerGroups, refresh: () => { void refetch(); } }), [groups, defaults, overrides, knownGroups, hydrated, isPending, storageError, save, registerGroups, refetch]);
-  return <GroupAppearanceContext.Provider value={value}>{children}</GroupAppearanceContext.Provider>;
+  const refresh = React.useCallback(() => { void refetch(); }, [refetch]);
+  const actions = React.useMemo(() => ({ registerGroups, refresh }), [registerGroups, refresh]);
+  const value = React.useMemo(() => ({ groups, defaults, overrides, knownGroups, ready: hydrated && !isPending, storageError, save, registerGroups, refresh }), [groups, defaults, overrides, knownGroups, hydrated, isPending, storageError, save, registerGroups, refresh]);
+  return <GroupActionsContext.Provider value={actions}><GroupVisualContext.Provider value={groups}><GroupAppearanceContext.Provider value={value}>{children}</GroupAppearanceContext.Provider></GroupVisualContext.Provider></GroupActionsContext.Provider>;
 }
 
 export function useGroupAppearance(): GroupAppearanceContextValue {
   return React.useContext(GroupAppearanceContext);
 }
 
+export function useGroupAppearanceActions(): GroupActions {
+  return React.useContext(GroupActionsContext);
+}
+
 export function GroupLabel({ group, groups: previewGroups, scheme }: { group: string | null | undefined; groups?: GroupAppearances; scheme?: 'light' | 'dark' }): React.JSX.Element {
   const { t } = useTranslation();
   const { colorScheme } = useColorScheme();
-  const { groups } = useGroupAppearance();
+  const groups = React.useContext(GroupVisualContext);
   const name = group || 'default';
   const label = name === 'default' ? t('Default') : name;
   const appearance = getGroupAppearance(previewGroups ?? groups, name);

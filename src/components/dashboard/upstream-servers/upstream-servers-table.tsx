@@ -10,7 +10,8 @@ import {
 } from 'material-react-table';
 import { Card, IconButton, Tooltip } from '@mui/material';
 import RefreshIcon from '@mui/icons-material/Refresh';
-import { createTheme, useColorScheme } from '@mui/material/styles';
+import { useColorScheme } from '@mui/material/styles';
+import { tableBackground } from '../layout/table-background';
 import { type UpStreamServers, smartdnsServer } from '@/lib/backend/server';
 import { useUser } from '@/hooks/use-user';
 import { useTableDensityPreview } from '@/components/dashboard/layout/table-density-provider';
@@ -169,11 +170,7 @@ function TableUpstreamServers(): React.JSX.Element {
 
 
   const { colorScheme } = useColorScheme();
-  const tableTheme = React.useMemo(
-    () => createTheme({ palette: { mode: colorScheme === 'dark' ? 'dark' : 'light' } }),
-    [colorScheme],
-  );
-  const baseBackgroundColor = tableTheme.palette.background.paper;
+  const baseBackgroundColor = tableBackground(colorScheme);
 
   const widthText = React.useCallback((row: UpStreamServers, id: string) => {
     if (id === 'query_success_rate') return `${row.query_success_rate} %`;

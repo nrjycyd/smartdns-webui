@@ -2,7 +2,8 @@
 
 import { Alert, Box, Button, Card, MenuItem, Select, type SelectChangeEvent, useTheme, useMediaQuery } from '@mui/material';
 import * as React from 'react';
-import { LazyLog } from "@melloware/react-logviewer";
+import type { LazyLog } from "@melloware/react-logviewer";
+import { BoundedLog } from './bounded-log';
 import { authClient } from '@/lib/auth/client';
 import { useRouter } from 'next/navigation';
 import { useUser } from '@/hooks/use-user';
@@ -89,7 +90,6 @@ export function Log(): React.JSX.Element {
   const [connected, setConnected] = React.useState(false);
   const [lineCount, setLineCount] = React.useState(0);
   const [notBottomCount, setNotBottomCount] = React.useState(0);
-  const maxLines = 2000;
   const [autoFollow, setAutoFollow] = React.useState(true);
   const { checkSessionError } = useUser();
   const router = useRouter();
@@ -108,11 +108,13 @@ export function Log(): React.JSX.Element {
     }
 
     const socket = new WebSocket(api_url);
+    socket.binaryType = 'arraybuffer';
     socketRef.current = socket;
     setConnected(false);
     let disposed = false;
 
-    const appendLog = (color: string, log: string): void => {
+    const appendLogLines = (color: string, entries: string[]): void => {
+      if (entries.length === 0) return;
       const colorMap: Record<string, string> = {
             red: '\u001B[31m',
             green: '\u001B[32m',
@@ -123,19 +125,17 @@ export function Log(): React.JSX.Element {
             white: '\u001B[37m',
         };
 
-        log = log.replaceAll("\n", "");
-        if (colorMap[color]) {
-            log = `${colorMap[color]}${log}\u001B[0m`;
-        }
+      const lines = entries.map(entry => {
+        const line = entry.replaceAll('\n', '');
+        return colorMap[color] ? `${colorMap[color]}${line}\u001B[0m` : line;
+      });
 
       if (logRef.current) {
-        const lines = [log];
-        const count = lines.length;
         logRef.current.appendLines(lines);
-        logRef.current.state.lines = logRef.current.state.lines.slice(-maxLines);
-        setLineCount(count);
+        setLineCount(1);
       }
     }
+    const appendLog = (color: string, log: string): void => { appendLogLines(color, [log]); };
 
     const processMessage = (data: ArrayBuffer): void => {
       if (disposed) return;
@@ -166,13 +166,7 @@ export function Log(): React.JSX.Element {
       switch (type) {
         case 0: {
           const msgStr = new TextDecoder().decode(data.slice(messageOffset));
-          for (const line of msgStr.split('\n')) {
-            if (line.length <= 0) {
-              continue;
-            }
-
-            appendLog(color, `${line}\n`);
-          }
+          appendLogLines(color, msgStr.split('\n').filter(line => line.length > 0));
           break;
         }
       }
@@ -372,7 +366,7 @@ export function Log(): React.JSX.Element {
           padding: '1rem',
         }}
       >
-        <LazyLog
+        <BoundedLog
           ref={logRef}
           enableSearch={isLargeScreen}
           // text={logText}

@@ -45,7 +45,9 @@ function QueryClientIdentityCellContent({ ip }: { ip: string }): React.JSX.Eleme
   const status = t(activity === 'active' ? 'Recently active' : activity === 'inactive' ? 'No recent DNS queries' : 'Activity unknown');
   const lastQuery = lastQueryTimestamp && Number.isFinite(lastQueryTimestamp) && lastQueryTimestamp > 0 ? formatTime(lastQueryTimestamp) : '—';
   const title = `${tooltip} · ${status} · ${t('Current last query')}: ${lastQuery}`;
-  return (
+  // Cache the presentation without adding a component layer to every row.
+  // Clock and lookup changes above still recompute every freshness decision.
+  return React.useMemo(() => (
     <Tooltip title={title}>
       <Button
         data-query-client
@@ -63,7 +65,7 @@ function QueryClientIdentityCellContent({ ip }: { ip: string }): React.JSX.Eleme
         }}
       ><ClientDeviceIcon icon={icon} customColor={customColor} activity={activity} /><Box component="span" data-query-client-text sx={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis' }}>{name || formatQueryClientAddress(ip)}</Box>{activity === 'unknown' && <Box component="span" data-query-client-unknown aria-label={status} sx={{ flexShrink: 0, color: 'text.secondary', fontSize: 12 }}>?</Box>}</Button>
     </Tooltip>
-  );
+  ), [ip, name, tooltip, icon, customColor, activity, lookupPending, title, status, t, enqueueSnackbar]);
 }
 
 export const QueryClientIdentityCell = React.memo(QueryClientIdentityCellContent);

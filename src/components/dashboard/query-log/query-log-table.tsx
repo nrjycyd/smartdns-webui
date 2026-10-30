@@ -21,7 +21,8 @@ import {
   type MRT_TableInstance as MRTTableInstance,
 } from 'material-react-table';
 import { Box, Card, IconButton, Chip } from '@mui/material';
-import { createTheme, useColorScheme } from '@mui/material/styles';
+import { useColorScheme } from '@mui/material/styles';
+import { tableBackground } from '../layout/table-background';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import WidthNormalOutlined from '@mui/icons-material/WidthNormalOutlined';
 import { moment, filterTimestamp } from '@/lib/display-time';
@@ -49,7 +50,7 @@ import { ClientActivityProvider } from '@/components/dashboard/clients/client-ac
 import { ClientIdentityBatchProvider, useClientIdentitySizingReady, useRefreshClientIdentities } from '@/components/dashboard/clients/client-identity-provider';
 import { useClientNames } from '@/components/dashboard/clients/client-names-provider';
 import { formatQueryClientAddress } from './client-address';
-import { GroupLabel, useGroupAppearance } from './group-label';
+import { GroupLabel, useGroupAppearanceActions } from './group-label';
 import { useTableDensityPreview } from '@/components/dashboard/layout/table-density-provider';
 import { useAdaptiveColumns } from '@/components/dashboard/layout/use-adaptive-columns';
 import { queryLogAlignment, queryLogNumeric, queryLogPadding } from '@/components/dashboard/layout/query-log-layout';
@@ -71,7 +72,7 @@ function TableQueryLogs(): React.JSX.Element {
   const { t, i18n } = useTranslation();
   const search = useSearchParams().toString();
   const queryClient = useQueryClient();
-  const { refresh: refreshGroupAppearance, registerGroups } = useGroupAppearance();
+  const { refresh: refreshGroupAppearance, registerGroups } = useGroupAppearanceActions();
   const refreshClientIdentities = useRefreshClientIdentities();
   const { names, icons } = useClientNames();
   const [fitRevision, setFitRevision] = useState(0);
@@ -297,14 +298,16 @@ function TableQueryLogs(): React.JSX.Element {
   // Load saved pagination settings
   const PAGINATION_KEY = 'querylog-table-pagination';
   const [pagination, setPagination] = useState<MRTPaginationState>(() => ({ ...readTablePagination(PAGINATION_KEY), pageIndex: 0 }));
-  const [totalRowCount, setTotalRowCount] = useState(0);
-  const totalCountFromParams = React.useRef(false);
+  // The displayed count belongs to the query result. A URL count is only a
+  // one-shot request hint and must not cause a separate table render.
+  const totalCountFromParams = React.useRef<number | undefined>(undefined);
 
   const [tableLocales, setTableLocales] = useState(MRT_Localization_EN);
   const { enqueueSnackbar } = useSnackbar();
 
   React.useEffect(() => {
     const searchParams = new URLSearchParams(search);
+    totalCountFromParams.current = undefined;
     const filters: MRTColumnFiltersState = [];
 
     const timestamp: (moment.Moment | undefined)[] = [undefined, undefined];
@@ -333,8 +336,7 @@ function TableQueryLogs(): React.JSX.Element {
       if (key === 'total_count') {
         const count = Number(value);
         if (Number.isSafeInteger(count) && count >= 0) {
-          totalCountFromParams.current = true;
-          setTotalRowCount(count);
+          totalCountFromParams.current = count;
         }
         continue;
       }
@@ -382,9 +384,9 @@ function TableQueryLogs(): React.JSX.Element {
         'page_size': pagination.pageSize,
       };
 
-      if (totalCountFromParams.current) {
-        totalCountFromParams.current = false;
-        queryParam['total_count'] = totalRowCount;
+      if (totalCountFromParams.current !== undefined) {
+        queryParam['total_count'] = totalCountFromParams.current;
+        totalCountFromParams.current = undefined;
       }
 
       Object.assign(queryParam, getPageCursorParams(pageCursor.current, currentPageNumber, pagination.pageSize, scope));
@@ -426,7 +428,7 @@ function TableQueryLogs(): React.JSX.Element {
         }
       }
 
-      const data = await smartdnsServer.GetQueryLogs(queryParam);
+      const data = await smartdnsServer.GetQueryLogs(queryParam, signal);
       if (data.error) {
         await checkSessionError?.(data.error);
         setErrorMsg(smartdnsServer.getErrorMessage(data.error));
@@ -448,7 +450,6 @@ function TableQueryLogs(): React.JSX.Element {
           scope,
           totalCount,
         } : null;
-        setTotalRowCount(totalCount);
       }
       const resp: UserApiResponse = {
         data: data.data.domain_list,
@@ -527,7 +528,7 @@ function TableQueryLogs(): React.JSX.Element {
 
     enqueueSnackbar(t('Delete query log {{id}} {{domain}} successfully.', { id, domain }), { variant: 'success' });
     pageCursor.current = null;
-    totalCountFromParams.current = false;
+    totalCountFromParams.current = undefined;
     await queryClient.invalidateQueries({ queryKey: ['table-data'] });
   }, [t, enqueueSnackbar, queryClient]);
 
@@ -557,11 +558,7 @@ function TableQueryLogs(): React.JSX.Element {
   );
 
   const { colorScheme } = useColorScheme();
-  const tableTheme = React.useMemo(
-    () => createTheme({ palette: { mode: colorScheme === 'dark' ? 'dark' : 'light' } }),
-    [colorScheme],
-  );
-  const baseBackgroundColor = tableTheme.palette.background.paper;
+  const baseBackgroundColor = tableBackground(colorScheme);
 
   const COLUMN_VISIBILITY_KEY = 'querylog-table-column-visibility';
   const COLUMN_SIZING_KEY = 'querylog-table-column-sizing';
@@ -663,13 +660,13 @@ function TableQueryLogs(): React.JSX.Element {
       : undefined,
     onColumnFilterFnsChange: (updater) => {
       pageCursor.current = null;
-      totalCountFromParams.current = false;
+      totalCountFromParams.current = undefined;
       setColumnFilterFns(updater);
       setPagination((previous) => ({ ...previous, pageIndex: 0 }));
     },
     onColumnFiltersChange: (filters) => {
       pageCursor.current = null;
-      totalCountFromParams.current = false;
+      totalCountFromParams.current = undefined;
       setColumnFilters(filters);
       setPagination((previous) => ({ ...previous, pageIndex: 0 }));
     },
