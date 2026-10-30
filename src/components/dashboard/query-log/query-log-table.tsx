@@ -5,7 +5,6 @@ import * as React from 'react';
 import { useMemo, useState } from 'react';
 import { readColumnVisibility, readColumnSizing, saveTablePreference, readTablePagination, getPageCursorParams, type PageCursor } from '@/components/dashboard/layout/table-preferences';
 import { useSearchParams } from 'next/navigation';
-import dynamic from 'next/dynamic';
 import {
   MaterialReactTable,
   useMaterialReactTable,
@@ -50,6 +49,7 @@ import { OptimizedTableBody } from '../layout/optimized-table-body';
 import { ClientActivityProvider } from '@/components/dashboard/clients/client-activity-provider';
 import { ClientIdentityBatchProvider, useClientIdentitySizingReady, useRefreshClientIdentities, useResolveClientIdentity } from '@/components/dashboard/clients/client-identity-provider';
 import { useClientNames } from '@/components/dashboard/clients/client-names-provider';
+import { ClientNameDialog } from '@/components/dashboard/clients/client-name-dialog';
 import { formatQueryClientAddress } from './client-address';
 import { GroupLabel, useGroupAppearanceActions } from './group-label';
 import { useTableDensityPreview } from '@/components/dashboard/layout/table-density-provider';
@@ -66,7 +66,6 @@ interface UserApiResponse {
 
 const FILTER_COLUMNS = new Set(['id', 'domain', 'domain_type', 'client', 'domain_group', 'is_blocked', 'reply_code']);
 const EMPTY_LOG_ROWS: DomainList[] = [];
-const ClientNameDialog = dynamic(() => import('@/components/dashboard/clients/client-name-dialog').then(module => module.ClientNameDialog), { ssr: false });
 
 function TableQueryLogs(): React.JSX.Element {
   const { timeZone, formatTime } = useTimeDisplay();
