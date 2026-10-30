@@ -167,6 +167,21 @@ export function useRefreshClientIdentities(): () => void {
   }, [client]);
 }
 
+// Resolve only when an editor is opened, reusing the shared exact-IP cache
+// populated by both snapshots and individual lookups. No per-row observer.
+export function useResolveClientIdentity(): (ip: string) => Promise<ClientList | null> {
+  const client = useIdentityQueryClient();
+  return React.useCallback(async (ip: string) => client.fetchQuery({
+    queryKey: ['client-name-lookup', normalizeClientIp(ip)],
+    staleTime: CLIENT_REFRESH_INTERVAL,
+    queryFn: async ({ signal }) => {
+      const result = await smartdnsServer.GetClients({ client_ip: ip, page_num: 1, page_size: 1 }, signal);
+      if (result.error || !result.data) throw new Error('Client lookup failed');
+      return result.data.client_list.find(entry => normalizeClientIp(entry.client_ip) === normalizeClientIp(ip)) ?? null;
+    },
+  }), [client]);
+}
+
 // Coalesce the synchronous cache writes of one snapshot before checking every IP.
 export function useClientIdentitySizingReady(ips: readonly string[]): boolean {
   const client = useIdentityQueryClient();

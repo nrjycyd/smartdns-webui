@@ -5,6 +5,7 @@ import * as React from 'react';
 import { useMemo, useState } from 'react';
 import { readColumnVisibility, readColumnSizing, saveTablePreference, readTablePagination, getPageCursorParams, type PageCursor } from '@/components/dashboard/layout/table-preferences';
 import { useSearchParams } from 'next/navigation';
+import dynamic from 'next/dynamic';
 import {
   MaterialReactTable,
   useMaterialReactTable,
@@ -35,19 +36,19 @@ import {
   useQueryClient,
 } from '@tanstack/react-query';
 
-import { type DomainList, type QueryLogsParams, smartdnsServer } from '@/lib/backend/server';
+import { type ClientList, type DomainList, type QueryLogsParams, smartdnsServer } from '@/lib/backend/server';
 import { useUser } from '@/hooks/use-user';
 import { useTranslation } from 'react-i18next';
 import { MRT_Localization_EN } from 'material-react-table/locales/en';
 import { MRT_Localization_ZH_HANS } from 'material-react-table/locales/zh-Hans';
-import { Delete, Domain } from '@mui/icons-material';
+import { Delete, Domain, EditOutlined } from '@mui/icons-material';
 import { type SnackbarOrigin, SnackbarProvider, useSnackbar } from 'notistack';
 import { getDomainTypeName, getDomainTypeId } from './domain-type';
 import { QueryClientIdentityCell } from './client-identity-cell';
 import { ScrollingPing } from './scrolling-ping';
 import { OptimizedTableBody } from '../layout/optimized-table-body';
 import { ClientActivityProvider } from '@/components/dashboard/clients/client-activity-provider';
-import { ClientIdentityBatchProvider, useClientIdentitySizingReady, useRefreshClientIdentities } from '@/components/dashboard/clients/client-identity-provider';
+import { ClientIdentityBatchProvider, useClientIdentitySizingReady, useRefreshClientIdentities, useResolveClientIdentity } from '@/components/dashboard/clients/client-identity-provider';
 import { useClientNames } from '@/components/dashboard/clients/client-names-provider';
 import { formatQueryClientAddress } from './client-address';
 import { GroupLabel, useGroupAppearanceActions } from './group-label';
@@ -65,6 +66,7 @@ interface UserApiResponse {
 
 const FILTER_COLUMNS = new Set(['id', 'domain', 'domain_type', 'client', 'domain_group', 'is_blocked', 'reply_code']);
 const EMPTY_LOG_ROWS: DomainList[] = [];
+const ClientNameDialog = dynamic(() => import('@/components/dashboard/clients/client-name-dialog').then(module => module.ClientNameDialog), { ssr: false });
 
 function TableQueryLogs(): React.JSX.Element {
   const { timeZone, formatTime } = useTimeDisplay();
@@ -74,6 +76,8 @@ function TableQueryLogs(): React.JSX.Element {
   const queryClient = useQueryClient();
   const { refresh: refreshGroupAppearance, registerGroups } = useGroupAppearanceActions();
   const refreshClientIdentities = useRefreshClientIdentities();
+  const resolveClientIdentity = useResolveClientIdentity();
+  const [editingClient, setEditingClient] = useState<ClientList | null>(null);
   const { names, icons } = useClientNames();
   const [fitRevision, setFitRevision] = useState(0);
   const [columnPinning, setColumnPinning] = useState<MRTColumnPinningState>(() => ({ right: window.innerWidth >= 1200 ? ['mrt-row-actions'] : [] }));
@@ -551,8 +555,24 @@ function TableQueryLogs(): React.JSX.Element {
     ]
   );
 
-  const renderCellMenuItem = (closeMenu: () => void, _cell: MRTCell<DomainList>, row: MRTRow<DomainList>, table: MRTTableInstance<DomainList>): React.ReactNode[] => (
+  const renderCellMenuItem = (closeMenu: () => void, cell: MRTCell<DomainList>, row: MRTRow<DomainList>, table: MRTTableInstance<DomainList>): React.ReactNode[] => (
     [
+      ...(cell.column.id === 'client' ? [<MRTActionMenuItem
+        icon={<EditOutlined />}
+        key="custom_hostname"
+        label={t('Custom hostname')}
+        onClick={async (event) => {
+          event.preventDefault();
+          closeMenu();
+          try {
+            const client = await resolveClientIdentity(row.original.client);
+            setEditingClient(client ?? { id: 0, client_ip: row.original.client, mac: '', hostname: '', last_query_timestamp: 0 });
+          } catch {
+            enqueueSnackbar(t('Failed to load client names'), { variant: 'error' });
+          }
+        }}
+        table={table}
+      />] : []),
       renderRowMenuItem(closeMenu, row, table),
     ]
   );
@@ -777,7 +797,7 @@ function TableQueryLogs(): React.JSX.Element {
     }),
   });
 
-  return (<ClientIdentityBatchProvider ips={visibleIps}><ClientActivityProvider available><MaterialReactTable table={table} /></ClientActivityProvider></ClientIdentityBatchProvider>);
+  return (<ClientIdentityBatchProvider ips={visibleIps}><ClientActivityProvider available><MaterialReactTable table={table} />{editingClient && <ClientNameDialog key={`${editingClient.id}:${editingClient.client_ip}`} client={editingClient} onClose={() => { setEditingClient(null); }} />}</ClientActivityProvider></ClientIdentityBatchProvider>);
 };
 
 const queryClient = new QueryClient({
