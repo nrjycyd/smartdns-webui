@@ -11,18 +11,35 @@ import i18n from '@/components/core/i18n';
 class DrawStreamLine extends React.Component {
   chartItemCount = 60;
   lineRef: React.RefObject<Chart<'line'> | null> = React.createRef();
-  updateData(data: number): void {
+  drawingEnabled = true;
+  pendingDraw = false;
+  setDrawingEnabled(enabled: boolean): void {
+    this.drawingEnabled = enabled;
+    if (!enabled && this.lineRef.current) {
+      this.lineRef.current.stop();
+      this.pendingDraw = true;
+    }
+    if (enabled && this.pendingDraw && this.lineRef.current) {
+      this.pendingDraw = false;
+      this.lineRef.current.update();
+    }
+  }
+  updateData(data: number | readonly number[]): void {
     const chart = this.lineRef.current;
     if (chart === null || chart === undefined) {
       return;
     }
 
 
-    chart.data.datasets[0].data.push(data);
-    if (chart.data.datasets[0].data.length >= this.chartItemCount) {
-      chart.data.datasets[0].data.shift();
+    for (const value of typeof data === 'number' ? [data] : data) {
+      chart.data.datasets[0].data.push(value);
+      if (chart.data.datasets[0].data.length >= this.chartItemCount) chart.data.datasets[0].data.shift();
     }
-    chart.update();
+    if (this.drawingEnabled) {
+      chart.update();
+    } else {
+      this.pendingDraw = true;
+    }
   }
 
   render(): React.ReactNode {
@@ -102,10 +119,24 @@ class DrawStreamLine extends React.Component {
 interface StreamLineChartProps {
   data: number;
   dataIndex: number;
+  samples?: readonly number[];
 }
 
-export function StreamLineChart({ data, dataIndex }: StreamLineChartProps): React.JSX.Element {
+export function StreamLineChart({ data, dataIndex, samples }: StreamLineChartProps): React.JSX.Element {
   const lineRef = React.useRef<DrawStreamLine | null>(null);
+  const previousIndex = React.useRef(0);
+  const containerRef = React.useRef<HTMLDivElement | null>(null);
+
+  React.useEffect(() => {
+    const container = containerRef.current;
+    if (!container || typeof IntersectionObserver === 'undefined') return;
+    // Keep ingesting every sample; only the canvas drawing follows visibility.
+    const observer = new IntersectionObserver(([entry]) => {
+      lineRef.current?.setDrawingEnabled(entry?.isIntersecting ?? true);
+    });
+    observer.observe(container);
+    return () => { observer.disconnect(); };
+  }, []);
 
   React.useEffect(() => {
     const chart = lineRef.current;
@@ -117,15 +148,21 @@ export function StreamLineChart({ data, dataIndex }: StreamLineChartProps): Reac
       return;
     }
 
-    chart.updateData(data);
-  }, [data, dataIndex]
+    const received = dataIndex - previousIndex.current;
+    if (samples?.length) {
+      if (received > 0) chart.updateData(samples.slice(-received));
+    } else {
+      chart.updateData(data);
+    }
+    previousIndex.current = dataIndex;
+  }, [data, dataIndex, samples]
   );
 
   const memoizedDrawLine = React.useMemo(() => {
     return <DrawStreamLine ref={lineRef} />;
   }, []);
 
-  return (<Box
+  return (<Box ref={containerRef}
     sx={{
       height: '100%',
       width: '100%',

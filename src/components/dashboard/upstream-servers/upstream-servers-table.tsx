@@ -1,7 +1,8 @@
 "use client"
 
 import * as React from 'react';
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { readColumnVisibility, readColumnSizing, saveTablePreference } from '@/components/dashboard/layout/table-preferences';
 import {
   MaterialReactTable,
@@ -15,6 +16,7 @@ import { tableBackground } from '../layout/table-background';
 import { type UpStreamServers, smartdnsServer } from '@/lib/backend/server';
 import { useUser } from '@/hooks/use-user';
 import { useTableDensityPreview } from '@/components/dashboard/layout/table-density-provider';
+import { OptimizedTableBody } from '@/components/dashboard/layout/optimized-table-body';
 import { useAdaptiveColumns } from '@/components/dashboard/layout/use-adaptive-columns';
 import { useTranslation } from 'react-i18next';
 import { MRT_Localization_EN } from 'material-react-table/locales/en';
@@ -33,9 +35,6 @@ function getLatencyColor(ms: number): string {
 function TableUpstreamServers(): React.JSX.Element {
   const [density, previewDensity] = useTableDensityPreview();
   const { t, i18n } = useTranslation();
-  const [data, setData] = useState<UpStreamServers[]>([]);
-  const [isError, setIsError] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
 
   const COLUMN_VISIBILITY_KEY = 'upstream-servers-table-column-visibility';
   const COLUMN_SIZING_KEY = 'upstream-servers-table-column-sizing';
@@ -118,56 +117,25 @@ function TableUpstreamServers(): React.JSX.Element {
   );
 
   const { checkSessionError } = useUser();
-  const [errorMsg, setErrorMsg] = useState("");
-  const [tableLocales, setTableLocales] = useState(MRT_Localization_EN);
-
-  const fetchData = React.useCallback(async (): Promise<void> => {
-    setIsLoading(true);
-    const ret = await smartdnsServer.GetUpstreamServers();
-    if (ret.error) {
-      await checkSessionError?.(ret.error);
-      setErrorMsg(smartdnsServer.getErrorMessage(ret.error));
-      setIsError(true);
-      setIsLoading(false);
-      return;
-    }
-
-    if (ret.data === null || ret.data === undefined) {
-      setIsError(true);
-      setErrorMsg(t('No data returned.'));
-      setIsLoading(false);
-      return;
-    }
-
-    const translatedData = ret.data.map((item: UpStreamServers) => ({
-      ...item,
-      security: t(item.security),
-      status: t(item.status),
-    }));
-
-    setData(translatedData);
-    setIsError(false);
-    setIsLoading(false);
-  }, [checkSessionError, t]);
-
-  React.useEffect(() => {
-    fetchData().catch((_error: unknown) => {
-      // NOOP
-    });
-  }, [fetchData]);
-
-  React.useEffect(() => {
-    if (i18n.language === null || i18n.language === undefined) {
-      return;
-    }
-
-    if (i18n.language === 'zh-CN') {
-      setTableLocales(MRT_Localization_ZH_HANS);
-    } else {
-      setTableLocales(MRT_Localization_EN);
-    }
-  }, [i18n.language]);
-
+  const { data: rawData, error, isError, isLoading, isFetching, refetch } = useQuery({
+    queryKey: ['upstream-servers'],
+    gcTime: 60_000,
+    queryFn: async ({ signal }) => {
+      const ret = await smartdnsServer.GetUpstreamServers(signal);
+      signal.throwIfAborted();
+      if (ret.error) {
+        await checkSessionError?.(ret.error);
+        throw new Error(smartdnsServer.getErrorMessage(ret.error));
+      }
+      if (ret.data === null || ret.data === undefined) throw new Error(t('No data returned.'));
+      return ret.data;
+    },
+  });
+  const data = useMemo(() => (rawData ?? []).map((item) => ({
+    ...item, security: t(item.security), status: t(item.status),
+  })), [rawData, t]);
+  const errorMsg = error?.message ?? '';
+  const tableLocales = i18n.language === 'zh-CN' ? MRT_Localization_ZH_HANS : MRT_Localization_EN;
 
   const { colorScheme } = useColorScheme();
   const baseBackgroundColor = tableBackground(colorScheme);
@@ -190,6 +158,7 @@ function TableUpstreamServers(): React.JSX.Element {
     muiTableBodyCellProps: ({ row, cell }) => ({ sx: widths.cellSx, title: widthText(row.original, cell.column.id) }),
     muiCopyButtonProps: { sx: widths.copySx },
     muiTableHeadCellProps: { sx: widths.headerSx },
+    muiTableBodyProps: ({ table }) => ({ children: isLoading || data.length > 0 ? <OptimizedTableBody table={table} layout="upstream-servers" /> : undefined }),
     enableColumnOrdering: false,
     enableColumnActions: false,
     enableColumnFilters: false,
@@ -210,7 +179,7 @@ function TableUpstreamServers(): React.JSX.Element {
       : undefined,
     renderTopToolbarCustomActions: () => (
       <Tooltip arrow title={t("Refresh Data")}>
-        <IconButton onClick={async () => fetchData()}>
+        <IconButton onClick={async () => { await refetch(); }}>
           <RefreshIcon />
         </IconButton>
       </Tooltip>
@@ -245,7 +214,7 @@ function TableUpstreamServers(): React.JSX.Element {
     state: {
       density,
       showAlertBanner: isError,
-      showProgressBars: isLoading,
+      showProgressBars: isFetching,
       showSkeletons: isLoading,
       columnVisibility: widths.columnVisibility,
       columnSizing: widths.columnSizing,

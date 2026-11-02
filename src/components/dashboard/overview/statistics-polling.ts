@@ -1,6 +1,6 @@
 // Preserve the minute cadence and three-second recovery while allowing only
 // one active request or retry chain for each mounted statistics card.
-export function startStatisticsPolling(fetchData: (signal: AbortSignal) => Promise<boolean>): () => void {
+function pollStatistics(fetchData: (signal: AbortSignal) => Promise<boolean>): () => void {
   const controller = new AbortController();
   let inFlight = false;
   let retry: ReturnType<typeof setTimeout> | undefined;
@@ -24,4 +24,16 @@ export function startStatisticsPolling(fetchData: (signal: AbortSignal) => Promi
     clearInterval(interval);
     clearTimeout(retry);
   };
+}
+
+export function startStatisticsPolling(fetchData: (signal: AbortSignal) => Promise<boolean>): () => void {
+  if (typeof document === 'undefined') return pollStatistics(fetchData);
+  let stop: (() => void) | undefined;
+  const update = () => {
+    if (document.hidden) { stop?.(); stop = undefined; }
+    else if (!stop) stop = pollStatistics(fetchData);
+  };
+  document.addEventListener('visibilitychange', update);
+  update();
+  return () => { document.removeEventListener('visibilitychange', update); stop?.(); };
 }

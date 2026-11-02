@@ -4,7 +4,6 @@ import { SharedTableTooltip as Tooltip } from '../layout/shared-table-tooltip';
 import * as React from 'react';
 import { useMemo, useState } from 'react';
 import { readColumnVisibility, readColumnSizing, saveTablePreference, readTablePagination, getPageCursorParams, type PageCursor } from '@/components/dashboard/layout/table-preferences';
-import { useSearchParams } from 'next/navigation';
 import {
   MaterialReactTable,
   useMaterialReactTable,
@@ -25,18 +24,14 @@ import { useColorScheme } from '@mui/material/styles';
 import { tableBackground } from '../layout/table-background';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import WidthNormalOutlined from '@mui/icons-material/WidthNormalOutlined';
-import { moment, filterTimestamp } from '@/lib/display-time';
+import { filterTimestamp } from '@/lib/display-time';
 import { useTimeDisplay } from '../layout/time-display-provider';
 import {
-  QueryClient,
-  QueryClientProvider,
-  keepPreviousData,
   useQuery,
   useQueryClient,
 } from '@tanstack/react-query';
 
-import { type ClientList, type DomainList, type QueryLogsParams, smartdnsServer } from '@/lib/backend/server';
-import { useUser } from '@/hooks/use-user';
+import { AuthorError, type ClientList, type DomainList, type QueryLogsParams, smartdnsServer } from '@/lib/backend/server';
 import { useTranslation } from 'react-i18next';
 import { MRT_Localization_EN } from 'material-react-table/locales/en';
 import { MRT_Localization_ZH_HANS } from 'material-react-table/locales/zh-Hans';
@@ -55,6 +50,8 @@ import { GroupLabel, useGroupAppearanceActions } from './group-label';
 import { useTableDensityPreview } from '@/components/dashboard/layout/table-density-provider';
 import { useAdaptiveColumns } from '@/components/dashboard/layout/use-adaptive-columns';
 import { queryLogAlignment, queryLogNumeric, queryLogPadding } from '@/components/dashboard/layout/query-log-layout';
+import { parseQueryLogSearch, sameQueryLogState } from './query-log-navigation';
+import type { QueryLogViewProps } from './query-log-view';
 
 
 interface UserApiResponse {
@@ -64,14 +61,20 @@ interface UserApiResponse {
   };
 };
 
-const FILTER_COLUMNS = new Set(['id', 'domain', 'domain_type', 'client', 'domain_group', 'is_blocked', 'reply_code']);
 const EMPTY_LOG_ROWS: DomainList[] = [];
 
-function TableQueryLogs(): React.JSX.Element {
+function TableQueryLogs({ search, entry, checkSessionError }: QueryLogViewProps): React.JSX.Element {
+  const navigation = React.useMemo(() => parseQueryLogSearch(search), [search]);
+  const [appliedNavigation, setAppliedNavigation] = React.useState({ entry, search });
+  const lastSuccessfulEntry = React.useRef(-1);
+  const requestedEntry = React.useRef(-1);
+  const [initialized, setInitialized] = React.useState(false);
+  // Keep the original first-mount layout pass before showing skeleton cells.
+  // Activity restores this flag and the DOM, so returning does not repeat it.
+  React.useEffect(() => { setInitialized(true); }, []);
   const { timeZone, formatTime } = useTimeDisplay();
   const [density, previewDensity] = useTableDensityPreview();
   const { t, i18n } = useTranslation();
-  const search = useSearchParams().toString();
   const queryClient = useQueryClient();
   const { refresh: refreshGroupAppearance, registerGroups } = useGroupAppearanceActions();
   const refreshClientIdentities = useRefreshClientIdentities();
@@ -84,9 +87,7 @@ function TableQueryLogs(): React.JSX.Element {
   const [actionCell, setActionCell] = useState<MRTCell<DomainList> | null>(null);
   const hasPinnedData = [...(columnPinning.left ?? []), ...(columnPinning.right ?? [])].some(id => id !== 'mrt-row-actions');
 
-  const [columnFilters, setColumnFilters] = useState<MRTColumnFiltersState>(
-    [],
-  );
+  const [columnFilters, setColumnFilters] = useState<MRTColumnFiltersState>(() => navigation.filters);
 
   const columns = useMemo<MRTColumnDef<DomainList>[]>(
     () => [
@@ -283,16 +284,8 @@ function TableQueryLogs(): React.JSX.Element {
     }), 'mrt-row-spacer',
   ]);
 
-  const { checkSessionError } = useUser();
-  const [columnFilterFns, setColumnFilterFns] =
-    useState<MRTColumnFilterFnsState>(
-      () => Object.fromEntries(
-        columns.map(({ accessorKey }) => {
-          return [accessorKey, 'equals'];
-        })
-      ) as MRTColumnFilterFnsState
-    );
-  const [shouldFetchData, setShouldFetchData] = useState(false);
+  const defaultFilterFns = React.useMemo(() => Object.fromEntries(columns.map(({ accessorKey }) => [accessorKey, 'equals'])) as MRTColumnFilterFnsState, [columns]);
+  const [columnFilterFns, setColumnFilterFns] = useState<MRTColumnFilterFnsState>(defaultFilterFns);
   const [globalFilter, setGlobalFilter] = useState('');
   const [errorMsg, setErrorMsg] = useState("Error loading data");
   const [sorting, setSorting] = useState<MRTSortingState>([]);
@@ -300,78 +293,40 @@ function TableQueryLogs(): React.JSX.Element {
 
   // Load saved pagination settings
   const PAGINATION_KEY = 'querylog-table-pagination';
-  const [pagination, setPagination] = useState<MRTPaginationState>(() => ({ ...readTablePagination(PAGINATION_KEY), pageIndex: 0 }));
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- Re-read persisted page size on each route entry, as a fresh page mount previously did.
+  const entryPageSize = React.useMemo(() => readTablePagination(PAGINATION_KEY).pageSize, [entry]);
+  const [pagination, setPagination] = useState<MRTPaginationState>(() => ({ pageSize: entryPageSize, pageIndex: 0 }));
   // The displayed count belongs to the query result. A URL count is only a
   // one-shot request hint and must not cause a separate table render.
-  const totalCountFromParams = React.useRef<number | undefined>(undefined);
+  const totalCountFromParams = React.useRef<number | undefined>(navigation.totalCount);
 
   const [tableLocales, setTableLocales] = useState(MRT_Localization_EN);
-  const { enqueueSnackbar } = useSnackbar();
+  const { enqueueSnackbar, closeSnackbar } = useSnackbar();
 
   React.useEffect(() => {
-    const searchParams = new URLSearchParams(search);
-    totalCountFromParams.current = undefined;
-    const filters: MRTColumnFiltersState = [];
-
-    const timestamp: (moment.Moment | undefined)[] = [undefined, undefined];
-    let existTimestamp = false;
-    for (const [key, value] of searchParams.entries()) {
-      if (key === 'timestamp_after') {
-        const v = moment.utc(Number(value));
-        if (v.isValid()) {
-          timestamp[0] = v;
-          existTimestamp = true;
-        }
-
-        continue;
-      }
-
-      if (key === 'timestamp_before') {
-        const v = moment.utc(Number(value));
-        if (v.isValid()) {
-          timestamp[1] = v;
-          existTimestamp = true;
-        }
-
-        continue;
-      }
-
-      if (key === 'total_count') {
-        const count = Number(value);
-        if (Number.isSafeInteger(count) && count >= 0) {
-          totalCountFromParams.current = count;
-        }
-        continue;
-      }
-
-      if (!FILTER_COLUMNS.has(key)) {
-        continue;
-      }
-
-      filters.push({ id: key, value });
-    }
-
-    if (existTimestamp) {
-      filters.push({ id: 'timestamp', value: timestamp });
-    }
-
+    if (appliedNavigation.entry === entry) return;
     pageCursor.current = null;
-    setColumnFilters(filters);
-    setPagination((previous) => ({ ...previous, pageIndex: 0 }));
-    setShouldFetchData(true);
-  }, [search]);
+    if (appliedNavigation.search !== search) totalCountFromParams.current = navigation.totalCount;
+    setColumnFilters(previous => sameQueryLogState(previous, navigation.filters) ? previous : navigation.filters);
+    setColumnFilterFns(previous => sameQueryLogState(previous, defaultFilterFns) ? previous : defaultFilterFns);
+    setPagination(previous => previous.pageIndex === 0 && previous.pageSize === entryPageSize ? previous : { pageIndex: 0, pageSize: entryPageSize });
+    setAppliedNavigation({ entry, search });
+  }, [appliedNavigation, entry, search, navigation, defaultFilterFns, entryPageSize]);
+
+  const navigationMatches = appliedNavigation.entry === entry || (sameQueryLogState(columnFilters, navigation.filters) && sameQueryLogState(columnFilterFns, defaultFilterFns) && pagination.pageIndex === 0 && pagination.pageSize === entryPageSize);
 
   const {
-    data: { data = EMPTY_LOG_ROWS, meta } = {},
-    isError,
-    isRefetching,
+    data: response,
+    isError: queryError,
+    isRefetching: queryRefetching,
     isPlaceholderData,
-    isLoading,
+    isLoading: queryLoading,
     refetch,
   } = useQuery<UserApiResponse>({
-    enabled: shouldFetchData,
+    enabled: initialized && navigationMatches,
+    subscribed: initialized && navigationMatches,
     queryKey: [
-      'table-data',
+      'query-log',
       columnFilterFns,
       columnFilters,
       globalFilter,
@@ -432,15 +387,17 @@ function TableQueryLogs(): React.JSX.Element {
       }
 
       const data = await smartdnsServer.GetQueryLogs(queryParam, signal);
+      signal.throwIfAborted();
       if (data.error) {
-        await checkSessionError?.(data.error);
-        setErrorMsg(smartdnsServer.getErrorMessage(data.error));
-        throw new Error(errorMsg);
+        if (data.error instanceof AuthorError) await checkSessionError?.(data.error);
+        const message = smartdnsServer.getErrorMessage(data.error);
+        setErrorMsg(message);
+        throw new Error(message);
       }
 
       if (data.data === null || data.data === undefined) {
         setErrorMsg('Error loading data');
-        throw new Error(errorMsg);
+        throw new Error('Error loading data');
       }
 
       const totalCount = data.data.total_count;
@@ -463,8 +420,24 @@ function TableQueryLogs(): React.JSX.Element {
 
       return resp;
     },
-    placeholderData: keepPreviousData,
+    // A route entry must never borrow rows from a different query. Within an
+    // already-resolved entry, retain the existing pagination/filter UX.
+    placeholderData: previous => lastSuccessfulEntry.current === entry ? previous : undefined,
   });
+  const { data = EMPTY_LOG_ROWS, meta } = navigationMatches ? response ?? {} : {};
+  const isLoading = !navigationMatches || queryLoading;
+  const isError = navigationMatches && queryError;
+  const isRefetching = navigationMatches && queryRefetching;
+  React.useEffect(() => {
+    if (navigationMatches && response !== undefined && !isPlaceholderData) lastSuccessfulEntry.current = entry;
+  }, [navigationMatches, response, isPlaceholderData, entry]);
+  React.useEffect(() => {
+    if (!initialized || !navigationMatches || requestedEntry.current === entry) return;
+    requestedEntry.current = entry;
+    // Activity reconnects subscriptions before query options effects. Suppress
+    // subscription-time refetch, then refresh the aligned target exactly once.
+    void refetch({ cancelRefetch: false });
+  }, [initialized, navigationMatches, entry, refetch]);
 
   React.useEffect(() => { registerGroups(data.map((row) => row.domain_group)); }, [data, registerGroups]);
 
@@ -532,7 +505,7 @@ function TableQueryLogs(): React.JSX.Element {
     enqueueSnackbar(t('Delete query log {{id}} {{domain}} successfully.', { id, domain }), { variant: 'success' });
     pageCursor.current = null;
     totalCountFromParams.current = undefined;
-    await queryClient.invalidateQueries({ queryKey: ['table-data'] });
+    await queryClient.invalidateQueries({ queryKey: ['query-log'] });
   }, [t, enqueueSnackbar, queryClient]);
 
   const renderRowMenuItem = (closeMenu: () => void, row: MRTRow<DomainList>, table: MRTTableInstance<DomainList>): React.ReactNode[] => (
@@ -796,21 +769,24 @@ function TableQueryLogs(): React.JSX.Element {
     }),
   });
 
+  React.useEffect(() => {
+    const bodyHeight = document.body.style.height;
+    return () => {
+      table.setActionCell(null);
+      setEditingClient(null);
+      closeSnackbar();
+      if (table.getState().isFullScreen) {
+        document.body.style.height = bodyHeight;
+        table.setIsFullScreen(false);
+      }
+    };
+  }, [table, closeSnackbar]);
+
   return (<ClientIdentityBatchProvider ips={visibleIps}><ClientActivityProvider available><MaterialReactTable table={table} />{editingClient && <ClientNameDialog key={`${editingClient.id}:${editingClient.client_ip}`} client={editingClient} onClose={() => { setEditingClient(null); }} />}</ClientActivityProvider></ClientIdentityBatchProvider>);
 };
 
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      refetchOnWindowFocus: false,
-      gcTime: 0,
-      retry: false,
-    },
-  },
-});
 
-
-export function QueryLogTable(): React.JSX.Element {
+export function QueryLogTable(props: QueryLogViewProps): React.JSX.Element {
 
   const [state, setState] = React.useState<SnackbarOrigin>({
     vertical: 'top',
@@ -841,14 +817,12 @@ export function QueryLogTable(): React.JSX.Element {
   }, [setState]);
 
   return (
-    <QueryClientProvider client={queryClient}>
       <SnackbarProvider
         anchorOrigin={state}
         maxSnack={5} autoHideDuration={6000}>
         <Card>
-          <React.Suspense fallback={null}><TableQueryLogs /></React.Suspense>
+          <React.Suspense fallback={null}><TableQueryLogs {...props} /></React.Suspense>
         </Card>
       </SnackbarProvider>
-    </QueryClientProvider>
   );
 }

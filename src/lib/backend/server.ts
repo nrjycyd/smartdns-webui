@@ -488,8 +488,8 @@ class SmartDNSAPI {
         return ret;
     }
 
-    async GetUpstreamServers(): Promise<{ error?: ServerError, data?: UpStreamServers[] | null }> {
-        const ret = await this.server.fetch<UpStreamServersResponse>('/api/upstream-server', 'GET', {}, {});
+    async GetUpstreamServers(signal?: AbortSignal): Promise<{ error?: ServerError, data?: UpStreamServers[] | null }> {
+        const ret = await this.server.fetch<UpStreamServersResponse>('/api/upstream-server', 'GET', {}, {}, false, signal);
         if (ret.error) {
             return { error: ret.error };
         }

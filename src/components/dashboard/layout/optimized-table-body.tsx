@@ -16,13 +16,11 @@ import { TableInputMode } from './table-input-mode';
 const overlay = { content: '""', height: '100%', left: 0, position: 'absolute', top: 0, width: '100%', zIndex: -1 } as const;
 
 function LoadingCell<TData extends MRT_RowData>({ cell }: { cell: MRT_Cell<TData> }): React.JSX.Element {
-  const [width, setWidth] = React.useState(100);
   const { column } = cell;
-  React.useEffect(() => {
+  const [width] = React.useState(() => {
     const size = column.getSize();
-    const measured = column.columnDef.columnDefType === 'display' ? size / 2 : Math.round(Math.random() * (size - size / 3) + size / 3);
-    setWidth(previous => previous === 100 ? measured : previous);
-  }, [column]);
+    return column.columnDef.columnDefType === 'display' ? size / 2 : Math.round(Math.random() * (size - size / 3) + size / 3);
+  });
   return <Skeleton animation="wave" height={20} width={width} />;
 }
 
@@ -51,7 +49,7 @@ function TableRowContent<TData extends MRT_RowData>({ row, rowIndex, table, rowC
 }
 const OptimizedTableRow = React.memo(TableRowContent) as typeof TableRowContent;
 
-export function OptimizedTableBody<TData extends MRT_RowData>({ table, layout = 'query-log' }: { table: MRT_TableInstance<TData>; layout?: 'query-log' | 'clients' }): React.JSX.Element {
+export function OptimizedTableBody<TData extends MRT_RowData>({ table, layout = 'query-log' }: { table: MRT_TableInstance<TData>; layout?: 'query-log' | 'clients' | 'upstream-servers' }): React.JSX.Element {
   const theme = useTheme();
   const state = table.getState();
   const rows = table.getRowModel().rows;

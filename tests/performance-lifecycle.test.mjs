@@ -132,6 +132,134 @@ test('statistics errors recover and resume normal minute polling without lingeri
   await clock.advance(60000); assert.equal(calls, 3); stop(); assert.equal(clock.pending, 0);
 });
 
+function fakeDocument(initiallyHidden = false) {
+  const listeners = new Set();
+  return {
+    hidden: initiallyHidden,
+    addEventListener(type, listener) { assert.equal(type, 'visibilitychange'); listeners.add(listener); },
+    removeEventListener(type, listener) { assert.equal(type, 'visibilitychange'); listeners.delete(listener); },
+    change(hidden) { this.hidden = hidden; for (const listener of listeners) listener(); },
+    get listeners() { return listeners.size; },
+  };
+}
+
+test('hidden statistics abort in-flight work, remove timers and refresh once on return', async () => {
+  const clock = fakeClock(), document = fakeDocument();
+  const signals = [];
+  const { startStatisticsPolling } = await load('components/dashboard/overview/statistics-polling.ts', { ...clock, document });
+  const stop = startStatisticsPolling(async signal => { signals.push(signal); return false; });
+  await flush();
+  document.change(true);
+  assert(signals[0].aborted);
+  assert.equal(clock.pending, 0);
+  await clock.advance(300000);
+  assert.equal(signals.length, 1);
+  document.change(false);
+  assert.equal(signals.length, 2);
+  assert.equal(signals[1].aborted, false);
+  document.change(false);
+  assert.equal(signals.length, 2);
+  stop();
+  await flush();
+  assert(signals[1].aborted);
+  assert.equal(clock.pending, 0);
+  assert.equal(document.listeners, 0);
+});
+
+test('statistics mounted in a hidden document defer all requests until visible', async () => {
+  const clock = fakeClock(), document = fakeDocument(true);
+  let calls = 0;
+  const { startStatisticsPolling } = await load('components/dashboard/overview/statistics-polling.ts', { ...clock, document });
+  const stop = startStatisticsPolling(async () => { calls++; return true; });
+  await clock.advance(300000);
+  assert.equal(calls, 0);
+  assert.equal(clock.pending, 0);
+  document.change(false); await flush();
+  assert.equal(calls, 1);
+  await clock.advance(360000);
+  assert.equal(calls, 2);
+  stop();
+});
+
+test('metric batches preserve every visible QPS sample and latest cumulative counters', async () => {
+  const clock = fakeClock(), document = fakeDocument(), deliveries = [];
+  const { bufferMetrics } = await load('components/dashboard/overview/metrics-buffer.ts', { ...clock, document });
+  const buffer = bufferMetrics((latest, samples, count) => deliveries.push({ latest, samples, count }));
+  for (let i = 1; i <= 10; i++) buffer.push({ qps: i, total_query_count: i * 100 });
+  assert.equal(deliveries.length, 1);
+  await clock.advance(249);
+  assert.equal(deliveries.length, 1);
+  await clock.advance(250);
+  assert.deepEqual(deliveries.flatMap(d => d.samples.slice(-d.count)), [1,2,3,4,5,6,7,8,9,10]);
+  assert.equal(deliveries.at(-1).latest.total_query_count, 1000);
+  assert.equal(deliveries.reduce((sum, d) => sum + d.count, 0), 10);
+  buffer.dispose();
+  assert.equal(clock.pending, 0);
+  assert.equal(document.listeners, 0);
+});
+
+test('metric history survives skipped React commits and snapshots cannot be mutated by later messages', async () => {
+  const clock = fakeClock(), document = fakeDocument(), deliveries = [];
+  const { bufferMetrics } = await load('components/dashboard/overview/metrics-buffer.ts', { ...clock, document });
+  const buffer = bufferMetrics((latest, samples, count) => deliveries.push({ latest, samples, count }));
+  for (let batch = 0; batch < 5; batch++) {
+    for (let i = batch * 20; i < batch * 20 + 20; i++) buffer.push({ qps: i });
+    await clock.advance((batch + 1) * 250);
+  }
+  // If the UI consumes only the final delivery it still has the entire last
+  // minute; pending delivery counts still add up to the absolute sample index.
+  assert.deepEqual(deliveries.at(-1).samples, Array.from({ length: 60 }, (_, i) => i + 40));
+  assert.equal(deliveries.reduce((sum, d) => sum + d.count, 0), 100);
+  assert.deepEqual(deliveries[0].samples, [0]);
+  buffer.dispose();
+});
+
+test('hidden metric delivery retains only bounded chart history and flushes once when visible', async () => {
+  const clock = fakeClock(), document = fakeDocument(true), deliveries = [];
+  const { bufferMetrics } = await load('components/dashboard/overview/metrics-buffer.ts', { ...clock, document });
+  const buffer = bufferMetrics((latest, samples, count) => deliveries.push({ latest, samples, count }));
+  for (let i = 0; i < 1000; i++) buffer.push({ qps: i, total_query_count: i });
+  await clock.advance(300000);
+  assert.equal(deliveries.length, 0);
+  assert.equal(clock.pending, 0);
+  document.change(false);
+  assert.equal(deliveries.length, 1);
+  assert.deepEqual(deliveries[0].samples, Array.from({ length: 60 }, (_, i) => i + 940));
+  assert.equal(deliveries[0].count, 1000);
+  assert.equal(deliveries[0].latest.total_query_count, 999);
+  document.change(false);
+  assert.equal(deliveries.length, 1);
+  buffer.push({ qps: 1000 });
+  document.change(true);
+  assert.equal(clock.pending, 0);
+  buffer.dispose();
+  document.change(false);
+  buffer.push({ qps: 1001 });
+  await clock.advance(400000);
+  assert.equal(deliveries.length, 1);
+  assert.equal(document.listeners, 0);
+});
+
+test('batched chart ingestion has the same final samples as individual messages with one redraw', async () => {
+  const source = await readFile(new URL('../src/components/dashboard/overview/card-stream-linechart.tsx', import.meta.url), 'utf8');
+  const compiled = ts.transpileModule(source + '\nexport { DrawStreamLine };', { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.React } }).outputText;
+  const exports = {};
+  new Function('exports', 'require', compiled)(exports, id => id === 'react' ? { Component: class {}, createRef: () => ({ current: null }) } : {});
+  const make = () => {
+    const instance = new exports.DrawStreamLine();
+    let draws = 0;
+    instance.lineRef.current = { data: { datasets: [{ data: Array(60).fill(0) }] }, update() { draws++; }, stop() {} };
+    return { instance, samples: () => instance.lineRef.current.data.datasets[0].data, draws: () => draws };
+  };
+  const individual = make(), batched = make();
+  const samples = Array.from({ length: 1000 }, (_, i) => i);
+  for (const value of samples) individual.instance.updateData(value);
+  batched.instance.updateData(samples.slice(-60));
+  assert.deepEqual(batched.samples(), individual.samples());
+  assert.equal(batched.draws(), 1);
+  assert.equal(individual.draws(), 1000);
+});
+
 test('log tail trimming preserves complete UTF-8 lines and ANSI bytes', async () => {
   const { retainLogTail } = await load('components/dashboard/log/bounded-log.tsx', {}, { '@melloware/react-logviewer': { LazyLog } });
   const source = 'old\n中文🙂\n\u001B[31mred\u001B[0m\n';

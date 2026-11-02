@@ -3,6 +3,7 @@
 import * as React from 'react';
 import Grid from '@mui/material/Grid';
 import { openMetricsStream } from './metrics-stream';
+import { bufferMetrics } from './metrics-buffer';
 import { MetricsCard } from '@/components/dashboard/overview/metrics-card';
 import { type Mertrics } from '@/lib/backend/server';
 import { StreamLineChart } from './card-stream-linechart';
@@ -22,6 +23,8 @@ import { AdaptiveNumber } from '@/components/common/adaptive-number';
 import { CachedDomainsDialog } from './cached-domains-dialog';
 import { paths } from '@/paths';
 import { useRouter } from 'next/navigation';
+
+const MemoizedMetricsCard = React.memo(MetricsCard);
 
 const totalCards = [
     {
@@ -46,8 +49,8 @@ const totalCards = [
         accessor: 'qps',
         title: 'Query Per Second',
         bgcolor: 'var(--mui-palette-dashboard-chartQueryPerSecond)',
-        render: (value: number | string | boolean, dataIndex?: number) => {
-            return <StreamLineChart data={value as number} dataIndex={dataIndex || 0} />
+        render: (value: number | string | boolean, dataIndex?: number, samples?: unknown) => {
+            return <StreamLineChart data={value as number} dataIndex={dataIndex || 0} samples={samples as readonly number[] | undefined} />
         },
         icon: SpeedOutlinedIcon,
     },
@@ -117,6 +120,7 @@ export function MetricsCards(): React.JSX.Element {
     const [cardata, setCardData] = React.useState<Mertrics | null>(null);
     const [loading, setLoading] = React.useState<boolean>(true);
     const [dataIndex, setDataIndex] = React.useState<number>(0);
+    const [qpsSamples, setQpsSamples] = React.useState<readonly number[]>([]);
     const [cacheDialogOpen, setCacheDialogOpen] = React.useState<boolean>(false);
     const { enqueueSnackbar } = useSnackbar();
     const router = useRouter();
@@ -130,18 +134,30 @@ export function MetricsCards(): React.JSX.Element {
         setCacheDialogOpen(false);
     }, []);
 
+    const hasMetrics = cardata !== null;
+    const cacheMemorySize = cardata?.cache_memory_size;
+    const cacheCardData = React.useMemo(() => hasMetrics ? { cache_memory_size: cacheMemorySize } : null, [hasMetrics, cacheMemorySize]);
+    const handleBlockedQueriesClick = React.useCallback(() => { router.push(paths.dashboard.queryLog + '?is_blocked=true'); }, [router]);
+    const handleOpenCacheDialog = React.useCallback(() => { setCacheDialogOpen(true); }, []);
+
     React.useEffect(() => {
         const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
-        return openMetricsStream(protocol + '://' + window.location.host + '/api/stats/metrics',
-            () => { setLoading(false); },
+        const buffer = bufferMetrics<Mertrics>((data, samples, count) => {
+            setLoading(false);
+            setDataIndex(previous => previous + count);
+            setCardData(data);
+            setQpsSamples(samples);
+            setIsSuspended(data.is_metrics_suspended);
+        });
+        const stop = openMetricsStream(protocol + '://' + window.location.host + '/api/stats/metrics',
+            () => { if (!document.hidden) setLoading(false); },
             (event) => {
                 try {
                     const data = JSON.parse(event.data as string) as Mertrics;
-                    setDataIndex(previous => previous + 1);
-                    setCardData(data);
-                    setIsSuspended(data.is_metrics_suspended);
+                    buffer.push(data);
                 } catch { /* Ignore incomplete metric messages. */ }
             });
+        return () => { stop(); buffer.dispose(); };
     }, []);
 
     return (
@@ -154,15 +170,15 @@ export function MetricsCards(): React.JSX.Element {
             <Grid container spacing={2} sx={{ height: '100%', width: 'calc(100%)' }}>
                 {totalCards.map((card, _index) => (
                     <Grid size={{ lg: 4, xl: 2, md: 4, xs: 6 }} key={card.accessor}>
-                        <MetricsCard title={card.title}
+                        <MemoizedMetricsCard title={card.title}
                             isloading={loading}
                             icon={card.icon}
-                            onClick={card.accessor === 'block_query_count' ? () => router.push(paths.dashboard.queryLog + '?is_blocked=true') : card.accessor === 'cache_number' ? () => { setCacheDialogOpen(true); } : undefined}
+                            onClick={card.accessor === 'block_query_count' ? handleBlockedQueriesClick : card.accessor === 'cache_number' ? handleOpenCacheDialog : undefined}
                             value={cardata?.[card.accessor] ?? 0}
                             bgcolor={card.bgcolor}
                             render={card.render}
-                            dataIndex={dataIndex}
-                            cardata={cardata}
+                            dataIndex={card.accessor === 'qps' ? dataIndex : 0}
+                            cardata={card.accessor === 'cache_number' ? cacheCardData : card.accessor === 'qps' ? qpsSamples : undefined}
                             actionButton={card.actionButton}
                             cardMessage={cardMessage} />
                     </Grid>
